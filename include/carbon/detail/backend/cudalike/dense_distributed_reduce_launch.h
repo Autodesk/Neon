@@ -18,26 +18,26 @@ namespace carbon::detail::dense_distributed {
 
 #if CARBON_CUDALIKE_DEVICE_TU
 
-template <typename F,
+template <::carbon::DataView View,
+          typename F,
           typename T,
           typename Op>
 auto
-launch_dense_grid_reduce_kernel(int block_threads,
-                                const ::carbon::detail::Gpu& gpu,
-                                int64_t blocks,
-                                size_t shared_mem,
-                                gpu_stream_t stream,
-                                Span span,
-                                ::carbon::DataView view,
-                                F& fn,
-                                Op& op,
-                                T identity,
-                                T* partials,
-                                int64_t total_cells) -> gpu_error_t {
+launch_dense_grid_reduce_kernel_view(int block_threads,
+                                     const ::carbon::detail::Gpu& gpu,
+                                     int64_t blocks,
+                                     size_t shared_mem,
+                                     gpu_stream_t stream,
+                                     Span span,
+                                     F& fn,
+                                     Op& op,
+                                     T identity,
+                                     T* partials,
+                                     int64_t total_cells) -> gpu_error_t {
 #define CARBON_LAUNCH_DENSE_REDUCE(BT)                                                      \
-  return gpu.template typed_launch<&dense_grid_reduce_kernel_t<BT, F, T, Op>>(              \
+  return gpu.template typed_launch<&dense_grid_reduce_kernel_t<BT, View, F, T, Op>>(        \
       dim3(static_cast<unsigned>(blocks), 1U, 1U), dim3(static_cast<unsigned>(BT), 1U, 1U), \
-      shared_mem, stream, span, view, fn, op, identity, partials, total_cells)
+      shared_mem, stream, span, fn, op, identity, partials, total_cells)
 
   switch (block_threads) {
     case 32:
@@ -65,22 +65,55 @@ template <typename F,
           typename T,
           typename Op>
 auto
-launch_dense_grid_reduce_block_atomic_kernel(int block_threads,
-                                             const ::carbon::detail::Gpu& gpu,
-                                             int64_t blocks,
-                                             size_t shared_mem,
-                                             gpu_stream_t stream,
-                                             Span span,
-                                             ::carbon::DataView view,
-                                             F& fn,
-                                             Op& op,
-                                             T identity,
-                                             T* global_out,
-                                             int64_t total_cells) -> gpu_error_t {
+launch_dense_grid_reduce_kernel(int block_threads,
+                                const ::carbon::detail::Gpu& gpu,
+                                int64_t blocks,
+                                size_t shared_mem,
+                                gpu_stream_t stream,
+                                Span span,
+                                ::carbon::DataView view,
+                                F& fn,
+                                Op& op,
+                                T identity,
+                                T* partials,
+                                int64_t total_cells) -> gpu_error_t {
+  switch (view) {
+    case ::carbon::DataView::Standard:
+      return launch_dense_grid_reduce_kernel_view<::carbon::DataView::Standard>(
+          block_threads, gpu, blocks, shared_mem, stream, span, fn, op, identity, partials,
+          total_cells);
+    case ::carbon::DataView::Internal:
+      return launch_dense_grid_reduce_kernel_view<::carbon::DataView::Internal>(
+          block_threads, gpu, blocks, shared_mem, stream, span, fn, op, identity, partials,
+          total_cells);
+    case ::carbon::DataView::Boundary:
+      return launch_dense_grid_reduce_kernel_view<::carbon::DataView::Boundary>(
+          block_threads, gpu, blocks, shared_mem, stream, span, fn, op, identity, partials,
+          total_cells);
+  }
+  return gpu_error_not_supported;
+}
+
+template <::carbon::DataView View,
+          typename F,
+          typename T,
+          typename Op>
+auto
+launch_dense_grid_reduce_block_atomic_kernel_view(int block_threads,
+                                                  const ::carbon::detail::Gpu& gpu,
+                                                  int64_t blocks,
+                                                  size_t shared_mem,
+                                                  gpu_stream_t stream,
+                                                  Span span,
+                                                  F& fn,
+                                                  Op& op,
+                                                  T identity,
+                                                  T* global_out,
+                                                  int64_t total_cells) -> gpu_error_t {
 #define CARBON_LAUNCH_DENSE_REDUCE_ATOMIC(BT)                                               \
-  return gpu.template typed_launch<&dense_grid_reduce_block_atomic_kernel_t<BT, F, T, Op>>( \
+  return gpu.template typed_launch<&dense_grid_reduce_block_atomic_kernel_t<BT, View, F, T, Op>>( \
       dim3(static_cast<unsigned>(blocks), 1U, 1U), dim3(static_cast<unsigned>(BT), 1U, 1U), \
-      shared_mem, stream, span, view, fn, op, identity, global_out, total_cells)
+      shared_mem, stream, span, fn, op, identity, global_out, total_cells)
 
   switch (block_threads) {
     case 32:
@@ -102,6 +135,71 @@ launch_dense_grid_reduce_block_atomic_kernel(int block_threads,
           block_threads);
   }
 #undef CARBON_LAUNCH_DENSE_REDUCE_ATOMIC
+}
+
+template <typename F,
+          typename T,
+          typename Op>
+auto
+launch_dense_grid_reduce_block_atomic_kernel(int block_threads,
+                                             const ::carbon::detail::Gpu& gpu,
+                                             int64_t blocks,
+                                             size_t shared_mem,
+                                             gpu_stream_t stream,
+                                             Span span,
+                                             ::carbon::DataView view,
+                                             F& fn,
+                                             Op& op,
+                                             T identity,
+                                             T* global_out,
+                                             int64_t total_cells) -> gpu_error_t {
+  switch (view) {
+    case ::carbon::DataView::Standard:
+      return launch_dense_grid_reduce_block_atomic_kernel_view<::carbon::DataView::Standard>(
+          block_threads, gpu, blocks, shared_mem, stream, span, fn, op, identity, global_out,
+          total_cells);
+    case ::carbon::DataView::Internal:
+      return launch_dense_grid_reduce_block_atomic_kernel_view<::carbon::DataView::Internal>(
+          block_threads, gpu, blocks, shared_mem, stream, span, fn, op, identity, global_out,
+          total_cells);
+    case ::carbon::DataView::Boundary:
+      return launch_dense_grid_reduce_block_atomic_kernel_view<::carbon::DataView::Boundary>(
+          block_threads, gpu, blocks, shared_mem, stream, span, fn, op, identity, global_out,
+          total_cells);
+  }
+  return gpu_error_not_supported;
+}
+
+template <::carbon::DataView View,
+          int BlockDimX,
+          int BlockDimY,
+          typename F,
+          typename T,
+          typename Op>
+auto
+launch_dense_grid_reduce_kernel_2d_view(int block_dim_x,
+                                        int block_dim_y,
+                                        unsigned grid_x,
+                                        unsigned grid_y,
+                                        const ::carbon::detail::Gpu& gpu,
+                                        size_t shared_mem,
+                                        gpu_stream_t stream,
+                                        Span span,
+                                        F& fn,
+                                        Op& op,
+                                        T identity,
+                                        T* partials,
+                                        int64_t total_cells) -> gpu_error_t {
+  if (block_dim_x == BlockDimX && block_dim_y == BlockDimY) {
+    return gpu.template typed_launch<
+        &dense_grid_reduce_kernel_2d_t<BlockDimX, BlockDimY, View, F, T, Op>>(
+        dim3(grid_x, grid_y, 1U),
+        dim3(static_cast<unsigned>(BlockDimX), static_cast<unsigned>(BlockDimY), 1U), shared_mem,
+        stream, span, fn, op, identity, partials, total_cells);
+  }
+  log::throw_with_log<std::invalid_argument>(
+      "Kernel::reduce: unsupported 2D reduce block {}x{} (currently only 32x32)", block_dim_x,
+      block_dim_y);
 }
 
 template <typename F,
@@ -131,18 +229,53 @@ launch_dense_grid_reduce_kernel_2d(int block_dim_x,
         grid_y, blocks);
   }
 
-#define CARBON_LAUNCH_DENSE_REDUCE_2D(BX, BY)                                                   \
-  return gpu.template typed_launch<&dense_grid_reduce_kernel_2d_t<BX, BY, F, T, Op>>(           \
-      dim3(grid_x, grid_y, 1U), dim3(static_cast<unsigned>(BX), static_cast<unsigned>(BY), 1U), \
-      shared_mem, stream, span, view, fn, op, identity, partials, total_cells)
+  switch (view) {
+    case ::carbon::DataView::Standard:
+      return launch_dense_grid_reduce_kernel_2d_view<::carbon::DataView::Standard, 32, 32>(
+          block_dim_x, block_dim_y, grid_x, grid_y, gpu, shared_mem, stream, span, fn, op,
+          identity, partials, total_cells);
+    case ::carbon::DataView::Internal:
+      return launch_dense_grid_reduce_kernel_2d_view<::carbon::DataView::Internal, 32, 32>(
+          block_dim_x, block_dim_y, grid_x, grid_y, gpu, shared_mem, stream, span, fn, op,
+          identity, partials, total_cells);
+    case ::carbon::DataView::Boundary:
+      return launch_dense_grid_reduce_kernel_2d_view<::carbon::DataView::Boundary, 32, 32>(
+          block_dim_x, block_dim_y, grid_x, grid_y, gpu, shared_mem, stream, span, fn, op,
+          identity, partials, total_cells);
+  }
+  return gpu_error_not_supported;
+}
 
-  if (block_dim_x == 32 && block_dim_y == 32) {
-    CARBON_LAUNCH_DENSE_REDUCE_2D(32, 32);
+template <::carbon::DataView View,
+          int BlockDimX,
+          int BlockDimY,
+          typename F,
+          typename T,
+          typename Op>
+auto
+launch_dense_grid_reduce_block_atomic_kernel_2d_view(int block_dim_x,
+                                                     int block_dim_y,
+                                                     unsigned grid_x,
+                                                     unsigned grid_y,
+                                                     const ::carbon::detail::Gpu& gpu,
+                                                     size_t shared_mem,
+                                                     gpu_stream_t stream,
+                                                     Span span,
+                                                     F& fn,
+                                                     Op& op,
+                                                     T identity,
+                                                     T* global_out,
+                                                     int64_t total_cells) -> gpu_error_t {
+  if (block_dim_x == BlockDimX && block_dim_y == BlockDimY) {
+    return gpu.template typed_launch<
+        &dense_grid_reduce_block_atomic_kernel_2d_t<BlockDimX, BlockDimY, View, F, T, Op>>(
+        dim3(grid_x, grid_y, 1U),
+        dim3(static_cast<unsigned>(BlockDimX), static_cast<unsigned>(BlockDimY), 1U), shared_mem,
+        stream, span, fn, op, identity, global_out, total_cells);
   }
   log::throw_with_log<std::invalid_argument>(
       "Kernel::reduce: unsupported 2D reduce block {}x{} (currently only 32x32)", block_dim_x,
       block_dim_y);
-#undef CARBON_LAUNCH_DENSE_REDUCE_2D
 }
 
 template <typename F,
@@ -172,18 +305,24 @@ launch_dense_grid_reduce_block_atomic_kernel_2d(int block_dim_x,
         grid_y, blocks);
   }
 
-#define CARBON_LAUNCH_DENSE_REDUCE_ATOMIC_2D(BX, BY)                                               \
-  return gpu.template typed_launch<&dense_grid_reduce_block_atomic_kernel_2d_t<BX, BY, F, T, Op>>( \
-      dim3(grid_x, grid_y, 1U), dim3(static_cast<unsigned>(BX), static_cast<unsigned>(BY), 1U),    \
-      shared_mem, stream, span, view, fn, op, identity, global_out, total_cells)
-
-  if (block_dim_x == 32 && block_dim_y == 32) {
-    CARBON_LAUNCH_DENSE_REDUCE_ATOMIC_2D(32, 32);
+  switch (view) {
+    case ::carbon::DataView::Standard:
+      return launch_dense_grid_reduce_block_atomic_kernel_2d_view<
+          ::carbon::DataView::Standard, 32, 32>(block_dim_x, block_dim_y, grid_x, grid_y, gpu,
+                                                shared_mem, stream, span, fn, op, identity,
+                                                global_out, total_cells);
+    case ::carbon::DataView::Internal:
+      return launch_dense_grid_reduce_block_atomic_kernel_2d_view<
+          ::carbon::DataView::Internal, 32, 32>(block_dim_x, block_dim_y, grid_x, grid_y, gpu,
+                                                shared_mem, stream, span, fn, op, identity,
+                                                global_out, total_cells);
+    case ::carbon::DataView::Boundary:
+      return launch_dense_grid_reduce_block_atomic_kernel_2d_view<
+          ::carbon::DataView::Boundary, 32, 32>(block_dim_x, block_dim_y, grid_x, grid_y, gpu,
+                                                shared_mem, stream, span, fn, op, identity,
+                                                global_out, total_cells);
   }
-  log::throw_with_log<std::invalid_argument>(
-      "Kernel::reduce: unsupported 2D reduce block {}x{} (currently only 32x32)", block_dim_x,
-      block_dim_y);
-#undef CARBON_LAUNCH_DENSE_REDUCE_ATOMIC_2D
+  return gpu_error_not_supported;
 }
 
 #endif  // CARBON_CUDALIKE_DEVICE_TU

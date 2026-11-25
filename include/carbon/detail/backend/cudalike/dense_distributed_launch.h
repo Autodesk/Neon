@@ -66,49 +66,31 @@ inline constexpr bool dense_launch_requires_cudacc_ = false;
  * @return @c gpu_error_t result of @c gpu_runtime_launch_kernel — non-success values are surfaced
  *         to the user through @c DeviceKernelImpl's error path.
  */
-// template <typename F>
-// requires dense_kernel_fn<F> [[nodiscard]] inline auto
-// launch_dense_grid(const ::carbon::DenseDistributed& grid,
-//                   LaunchShape grid_shape,
-//                   LaunchShape block_shape,
-//                   size_t relative_gpu_id,
-//                   size_t shared_mem,
-//                   gpu_stream_t stream,
-//                   ::carbon::DataView view,
-//                   F fn) -> gpu_error_t {
-//   if (relative_gpu_id >= grid.gpu_count()) {
-//     ::carbon::log::throw_with_log<std::out_of_range>(
-//         "launch_dense_grid: relative_gpu_id out of range (relative_gpu_id={}, gpu_count={})",
-//         relative_gpu_id, grid.gpu_count());
-//   }
-//   if (!grid_shape.is_nonzero() || !block_shape.is_nonzero()) {
-//     // Empty iteration — no work, so report success without touching the driver. This is
-//     // reachable two ways: a Boundary view on a slab whose z extent is fully owned, and a slab
-//     // that got no cells at all because the grid has fewer z planes than GPUs. Note that CUDA
-//     // does *not* forgive a zero grid dimension: cudaLaunchKernel rejects dim3(0, 0, 0) with
-//     // cudaErrorInvalidConfiguration, so without this guard those launches fail outright.
-//     return gpu_success;
-//   }
-//   const ::carbon::detail::Gpu& gpu = grid.system().gpu_group().devices()[relative_gpu_id];
-//   const Span span = grid.spans()[relative_gpu_id];
-//   // Stamp the storage kind so Partition::neighbour can skip redundant x/y global checks on a
-//   // legacy slab (the CG hot path). User lambdas should take the span as `auto`.
-//   switch (span.storage_kind()) {
-//     case StorageKind::Slab:
-//       return gpu.template typed_launch<&dense_grid_kernel<F, StorageKind::Slab>>(
-//           to_dim3(grid_shape), to_dim3(block_shape), shared_mem, stream, TypedSpan<StorageKind::Slab>{span}, view, fn);
-//     case StorageKind::Pencil:
-//       return gpu.template typed_launch<&dense_grid_kernel<F, StorageKind::Pencil>>(
-//           to_dim3(grid_shape), to_dim3(block_shape), shared_mem, stream, TypedSpan<StorageKind::Pencil>{span}, view, fn);
-//     case StorageKind::Brick:
-//       return gpu.template typed_launch<&dense_grid_kernel<F, StorageKind::Brick>>(
-//           to_dim3(grid_shape), to_dim3(block_shape), shared_mem, stream, TypedSpan<StorageKind::Brick>{span}, view, fn);
-//   }
-//   return gpu_error_not_supported;
-// }
+template <::carbon::DataView View, typename F>
+requires dense_distributed_kernel_fn<F> [[nodiscard]] inline auto
+launch_dense_grid_view(const ::carbon::detail::Gpu& gpu,
+                       const Span& span,
+                       dim3 grid_shape,
+                       dim3 block_shape,
+                       size_t shared_mem,
+                       gpu_stream_t stream,
+                       F fn) -> gpu_error_t {
+  switch (span.storage_kind()) {
+    case StorageKind::Slab:
+      return gpu.template typed_launch<&dense_grid_kernel<View, StorageKind::Slab, F>>(
+          grid_shape, block_shape, shared_mem, stream, TypedSpan<StorageKind::Slab>{span}, fn);
+    case StorageKind::Pencil:
+      return gpu.template typed_launch<&dense_grid_kernel<View, StorageKind::Pencil, F>>(
+          grid_shape, block_shape, shared_mem, stream, TypedSpan<StorageKind::Pencil>{span}, fn);
+    case StorageKind::Brick:
+      return gpu.template typed_launch<&dense_grid_kernel<View, StorageKind::Brick, F>>(
+          grid_shape, block_shape, shared_mem, stream, TypedSpan<StorageKind::Brick>{span}, fn);
+  }
+  return gpu_error_not_supported;
+}
 
 template <typename F>
-requires dense_kernel_fn<F> [[nodiscard]] inline auto
+requires dense_distributed_kernel_fn<F> [[nodiscard]] inline auto
 launch_dense_grid(const ::carbon::DenseDistributed& grid,
                   LaunchShape grid_shape,
                   LaunchShape block_shape,
@@ -132,27 +114,26 @@ launch_dense_grid(const ::carbon::DenseDistributed& grid,
   }
   const ::carbon::detail::Gpu& gpu = grid.system().gpu_group().devices()[relative_gpu_id];
   const Span span = grid.spans()[relative_gpu_id];
-  // Stamp the storage kind so Partition::neighbour can skip redundant x/y global checks on a
-  // legacy slab (the CG hot path). User lambdas should take the span as `auto`.
-  switch (span.storage_kind()) {
-    case StorageKind::Slab:
-      return gpu.template typed_launch<&dense_grid_kernel<F, StorageKind::Slab>>(
-          to_dim3(grid_shape), to_dim3(block_shape), shared_mem, stream, span, view, fn);
-    case StorageKind::Pencil:
-      return gpu.template typed_launch<&dense_grid_kernel<F, StorageKind::Pencil>>(
-          to_dim3(grid_shape), to_dim3(block_shape), shared_mem, stream, span, view, fn);
-    case StorageKind::Brick:
-      return gpu.template typed_launch<&dense_grid_kernel<F, StorageKind::Brick>>(
-          to_dim3(grid_shape), to_dim3(block_shape), shared_mem, stream, span, view, fn);
+  const dim3 dim_grid = to_dim3(grid_shape);
+  const dim3 dim_block = to_dim3(block_shape);
+  switch (view) {
+    case ::carbon::DataView::Standard:
+      return launch_dense_grid_view<::carbon::DataView::Standard>(
+          gpu, span, dim_grid, dim_block, shared_mem, stream, fn);
+    case ::carbon::DataView::Internal:
+      return launch_dense_grid_view<::carbon::DataView::Internal>(
+          gpu, span, dim_grid, dim_block, shared_mem, stream, fn);
+    case ::carbon::DataView::Boundary:
+      return launch_dense_grid_view<::carbon::DataView::Boundary>(
+          gpu, span, dim_grid, dim_block, shared_mem, stream, fn);
   }
   return gpu_error_not_supported;
 }
 
-
 #else
 
 template <typename F>
-requires dense_kernel_fn<F> [[nodiscard]] inline auto
+requires dense_distributed_kernel_fn<F> [[nodiscard]] inline auto
 launch_dense_grid(const ::carbon::DenseDistributed&,
                   LaunchShape,
                   LaunchShape,

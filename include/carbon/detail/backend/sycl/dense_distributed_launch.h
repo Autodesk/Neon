@@ -50,11 +50,10 @@ namespace carbon::detail::dense_distributed {
 namespace detail {
 
 /** Submit one typed launch so @c Partition::neighbour can specialise on the storage kind. */
-template <StorageKind Kind, typename F>
-requires dense_kernel_fn<F> inline void
+template <::carbon::DataView View, StorageKind Kind, typename F>
+requires dense_distributed_kernel_fn<F> inline void
 launch_dense_grid_typed(sycl::queue& queue,
                         const TypedSpan<Kind>& span,
-                        ::carbon::DataView view,
                         const sycl::range<3>& global,
                         const sycl::range<3>& local,
                         F fn) {
@@ -62,7 +61,7 @@ launch_dense_grid_typed(sycl::queue& queue,
     const int64_t ix = static_cast<int64_t>(it.get_global_id(2));
     const int64_t iy = static_cast<int64_t>(it.get_global_id(1));
     const int64_t iz = static_cast<int64_t>(it.get_global_id(0));
-    const ValidatedIdx r = span.set_and_validate(view, ix, iy, iz);
+    const ValidatedIdx r = span.template set_and_validate<View>(ix, iy, iz);
     if (!r.valid) {
       return;
     }
@@ -70,10 +69,33 @@ launch_dense_grid_typed(sycl::queue& queue,
   });
 }
 
+template <::carbon::DataView View, typename F>
+requires dense_distributed_kernel_fn<F> inline void
+launch_dense_grid_view(sycl::queue& queue,
+                       const Span& span,
+                       const sycl::range<3>& global,
+                       const sycl::range<3>& local,
+                       F fn) {
+  switch (span.storage_kind()) {
+    case StorageKind::Slab:
+      launch_dense_grid_typed<View, StorageKind::Slab>(
+          queue, TypedSpan<StorageKind::Slab>{span}, global, local, fn);
+      return;
+    case StorageKind::Pencil:
+      launch_dense_grid_typed<View, StorageKind::Pencil>(
+          queue, TypedSpan<StorageKind::Pencil>{span}, global, local, fn);
+      return;
+    case StorageKind::Brick:
+      launch_dense_grid_typed<View, StorageKind::Brick>(
+          queue, TypedSpan<StorageKind::Brick>{span}, global, local, fn);
+      return;
+  }
+}
+
 }  // namespace detail
 
 template <typename F>
-requires dense_kernel_fn<F> inline auto
+requires dense_distributed_kernel_fn<F> inline auto
 launch_dense_grid(const ::carbon::DenseDistributed& grid,
                   LaunchShape grid_shape,
                   LaunchShape block_shape,
@@ -114,18 +136,18 @@ launch_dense_grid(const ::carbon::DenseDistributed& grid,
       static_cast<size_t>(grid_shape.x) * static_cast<size_t>(block_shape.x)};
 
   try {
-    switch (span.storage_kind()) {
-      case StorageKind::Slab:
-        detail::launch_dense_grid_typed<StorageKind::Slab>(
-            queue, TypedSpan<StorageKind::Slab>{span}, view, global, local, fn);
+    switch (view) {
+      case ::carbon::DataView::Standard:
+        detail::launch_dense_grid_view<::carbon::DataView::Standard>(
+            queue, span, global, local, fn);
         return;
-      case StorageKind::Pencil:
-        detail::launch_dense_grid_typed<StorageKind::Pencil>(
-            queue, TypedSpan<StorageKind::Pencil>{span}, view, global, local, fn);
+      case ::carbon::DataView::Internal:
+        detail::launch_dense_grid_view<::carbon::DataView::Internal>(
+            queue, span, global, local, fn);
         return;
-      case StorageKind::Brick:
-        detail::launch_dense_grid_typed<StorageKind::Brick>(
-            queue, TypedSpan<StorageKind::Brick>{span}, view, global, local, fn);
+      case ::carbon::DataView::Boundary:
+        detail::launch_dense_grid_view<::carbon::DataView::Boundary>(
+            queue, span, global, local, fn);
         return;
     }
   } catch (const sycl::exception& ex) {

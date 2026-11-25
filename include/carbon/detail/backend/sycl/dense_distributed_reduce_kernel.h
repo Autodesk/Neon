@@ -53,6 +53,49 @@ concept dense_reduce_fn = std::is_invocable_r_v<T, F, Span, Idx>;
  */
 constexpr int kReduceBlockThreads = 256;
 
+template <::carbon::DataView View,
+          typename F,
+          typename T,
+          typename Op>
+inline auto
+launch_dense_reduce_view(sycl::queue& queue,
+                         Span span,
+                         F fn,
+                         Op op,
+                         T init,
+                         T* out,
+                         int64_t total_cells) -> void {
+  const ::carbon::int64_3d ext = span.iter_extent<View>();
+
+  try {
+    queue.submit([&](sycl::handler& cgh) {
+      auto reducer =
+          sycl::reduction(out, init, op, sycl::property::reduction::initialize_to_identity{});
+      cgh.parallel_for(sycl::range<1>(static_cast<size_t>(total_cells)), reducer,
+                       [=](sycl::id<1> i, auto& red) {
+                         const int64_t flat = static_cast<int64_t>(i[0]);
+                         // Row-major decoding (z slowest, x fastest), same as the CUDA
+                         // dense_grid_reduce_kernel — keeps the per-cell traversal order
+                         // identical so any non-associative-op corner case lands on the
+                         // same accumulation tree shape on both backends (modulo the
+                         // runtime's own internal reduction tree, which is associative
+                         // by contract).
+                         const int64_t ix = flat % ext.x;
+                         const int64_t rest = flat / ext.x;
+                         const int64_t iy = rest % ext.y;
+                         const int64_t iz = rest / ext.y;
+                         const ValidatedIdx vi = span.set_and_validate<View>(ix, iy, iz);
+                         if (vi.valid) {
+                           red.combine(fn(span, vi.idx));
+                         }
+                       });
+    });
+  } catch (const sycl::exception& ex) {
+    ::carbon::log::throw_with_log<std::runtime_error>(
+        "launch_dense_reduce: SYCL parallel_for submission failed: {}", ex.what());
+  }
+}
+
 /**
  * @brief Launch a fused map+reduce over @c span 's iteration extent for @p view and
  *        write the final scalar into @p out .
@@ -104,34 +147,19 @@ launch_dense_reduce(sycl::queue& queue,
     return;
   }
 
-  const ::carbon::int64_3d ext = span.iter_extent(view);
-
-  try {
-    queue.submit([&](sycl::handler& cgh) {
-      auto reducer =
-          sycl::reduction(out, init, op, sycl::property::reduction::initialize_to_identity{});
-      cgh.parallel_for(sycl::range<1>(static_cast<size_t>(total_cells)), reducer,
-                       [=](sycl::id<1> i, auto& red) {
-                         const int64_t flat = static_cast<int64_t>(i[0]);
-                         // Row-major decoding (z slowest, x fastest), same as the CUDA
-                         // dense_grid_reduce_kernel — keeps the per-cell traversal order
-                         // identical so any non-associative-op corner case lands on the
-                         // same accumulation tree shape on both backends (modulo the
-                         // runtime's own internal reduction tree, which is associative
-                         // by contract).
-                         const int64_t ix = flat % ext.x;
-                         const int64_t rest = flat / ext.x;
-                         const int64_t iy = rest % ext.y;
-                         const int64_t iz = rest / ext.y;
-                         const ValidatedIdx vi = span.set_and_validate(view, ix, iy, iz);
-                         if (vi.valid) {
-                           red.combine(fn(span, vi.idx));
-                         }
-                       });
-    });
-  } catch (const sycl::exception& ex) {
-    ::carbon::log::throw_with_log<std::runtime_error>(
-        "launch_dense_reduce: SYCL parallel_for submission failed: {}", ex.what());
+  switch (view) {
+    case ::carbon::DataView::Standard:
+      launch_dense_reduce_view<::carbon::DataView::Standard>(
+          queue, span, fn, op, init, out, total_cells);
+      return;
+    case ::carbon::DataView::Internal:
+      launch_dense_reduce_view<::carbon::DataView::Internal>(
+          queue, span, fn, op, init, out, total_cells);
+      return;
+    case ::carbon::DataView::Boundary:
+      launch_dense_reduce_view<::carbon::DataView::Boundary>(
+          queue, span, fn, op, init, out, total_cells);
+      return;
   }
 }
 

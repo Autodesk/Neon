@@ -55,12 +55,12 @@ constexpr int kReduceBlockThreads = 256;
  * @p BlockThreads must match the launch configuration (see @c dense_reduce_launch.h ).
  */
 template <int BlockThreads,
+          ::carbon::DataView View,
           typename F,
           typename T,
           typename Op>
 __global__ void
 dense_grid_reduce_kernel_t(Span span,
-                           ::carbon::DataView view,
                            F fn,
                            Op op,
                            T init,
@@ -74,12 +74,12 @@ dense_grid_reduce_kernel_t(Span span,
 
   T thread_val = init;
   if (flat < total_cells) {
-    const ::carbon::int64_3d ext = span.iter_extent(view);
+    const ::carbon::int64_3d ext = span.iter_extent<View>();
     const int64_t ix = flat % ext.x;
     const int64_t rest = flat / ext.x;
     const int64_t iy = rest % ext.y;
     const int64_t iz = rest / ext.y;
-    const ValidatedIdx vi = span.set_and_validate(view, ix, iy, iz);
+    const ValidatedIdx vi = span.set_and_validate<View>(ix, iy, iz);
     if (vi.valid) {
       thread_val = fn(span, vi.idx);
     }
@@ -96,12 +96,12 @@ dense_grid_reduce_kernel_t(Span span,
  * @ref reduce_atomic_accumulate into @p global_out instead of a partials vector.
  */
 template <int BlockThreads,
+          ::carbon::DataView View,
           typename F,
           typename T,
           typename Op>
 __global__ void
 dense_grid_reduce_block_atomic_kernel_t(Span span,
-                                        ::carbon::DataView view,
                                         F fn,
                                         Op op,
                                         T init,
@@ -115,12 +115,12 @@ dense_grid_reduce_block_atomic_kernel_t(Span span,
 
   T thread_val = init;
   if (flat < total_cells) {
-    const ::carbon::int64_3d ext = span.iter_extent(view);
+    const ::carbon::int64_3d ext = span.iter_extent<View>();
     const int64_t ix = flat % ext.x;
     const int64_t rest = flat / ext.x;
     const int64_t iy = rest % ext.y;
     const int64_t iz = rest / ext.y;
-    const ValidatedIdx vi = span.set_and_validate(view, ix, iy, iz);
+    const ValidatedIdx vi = span.set_and_validate<View>(ix, iy, iz);
     if (vi.valid) {
       thread_val = fn(span, vi.idx);
     }
@@ -139,12 +139,12 @@ dense_grid_reduce_block_atomic_kernel_t(Span span,
  */
 template <int BlockDimX,
           int BlockDimY,
+          ::carbon::DataView View,
           typename F,
           typename T,
           typename Op>
 __global__ void
 dense_grid_reduce_kernel_2d_t(Span span,
-                              ::carbon::DataView view,
                               F fn,
                               Op op,
                               T init,
@@ -154,7 +154,7 @@ dense_grid_reduce_kernel_2d_t(Span span,
       gpucub::BlockReduce<T, BlockDimX, gpucub::BLOCK_REDUCE_WARP_REDUCTIONS, BlockDimY>;
   __shared__ typename BlockReduceT::TempStorage temp_storage;
 
-  const ::carbon::int64_3d ext = span.iter_extent(view);
+  const ::carbon::int64_3d ext = span.iter_extent<View>();
   const int64_t yz_extent = ext.y * ext.z;
   const int64_t ix =
       static_cast<int64_t>(blockIdx.x) * BlockDimX + static_cast<int64_t>(threadIdx.x);
@@ -165,7 +165,7 @@ dense_grid_reduce_kernel_2d_t(Span span,
   if (ix < ext.x && flat_yz < yz_extent) {
     const int64_t iy = flat_yz % ext.y;
     const int64_t iz = flat_yz / ext.y;
-    const ValidatedIdx vi = span.set_and_validate(view, ix, iy, iz);
+    const ValidatedIdx vi = span.set_and_validate<View>(ix, iy, iz);
     if (vi.valid) {
       thread_val = fn(span, vi.idx);
     }
@@ -181,12 +181,12 @@ dense_grid_reduce_kernel_2d_t(Span span,
 
 template <int BlockDimX,
           int BlockDimY,
+          ::carbon::DataView View,
           typename F,
           typename T,
           typename Op>
 __global__ void
 dense_grid_reduce_block_atomic_kernel_2d_t(Span span,
-                                           ::carbon::DataView view,
                                            F fn,
                                            Op op,
                                            T init,
@@ -196,7 +196,7 @@ dense_grid_reduce_block_atomic_kernel_2d_t(Span span,
       gpucub::BlockReduce<T, BlockDimX, gpucub::BLOCK_REDUCE_WARP_REDUCTIONS, BlockDimY>;
   __shared__ typename BlockReduceT::TempStorage temp_storage;
 
-  const ::carbon::int64_3d ext = span.iter_extent(view);
+  const ::carbon::int64_3d ext = span.iter_extent<View>();
   const int64_t yz_extent = ext.y * ext.z;
   const int64_t ix =
       static_cast<int64_t>(blockIdx.x) * BlockDimX + static_cast<int64_t>(threadIdx.x);
@@ -207,7 +207,7 @@ dense_grid_reduce_block_atomic_kernel_2d_t(Span span,
   if (ix < ext.x && flat_yz < yz_extent) {
     const int64_t iy = flat_yz % ext.y;
     const int64_t iz = flat_yz / ext.y;
-    const ValidatedIdx vi = span.set_and_validate(view, ix, iy, iz);
+    const ValidatedIdx vi = span.set_and_validate<View>(ix, iy, iz);
     if (vi.valid) {
       thread_val = fn(span, vi.idx);
     }

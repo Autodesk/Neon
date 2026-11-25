@@ -25,10 +25,19 @@ namespace carbon::detail::dense_distributed {
  * @c CARBON_HOST_DEVICE lambda at namespace scope with @c --extended-lambda). A @c __device__-only
  * callable can still be used with the kernel but may not satisfy this concept during instantiation.
  */
-template <typename F>
-concept dense_kernel_fn = requires(F fn, Span span, Idx idx) {
+template <typename F, typename SpanT>
+concept dense_kernel_fn_for = requires(F fn, SpanT span, Idx idx) {
   {fn(span, idx)}->std::same_as<void>;
 };
+
+template <typename F>
+concept dense_kernel_fn = dense_kernel_fn_for<F, Span>;
+
+template <typename F>
+concept dense_distributed_kernel_fn =
+    dense_kernel_fn_for<F, TypedSpan<StorageKind::Slab>> &&
+    dense_kernel_fn_for<F, TypedSpan<StorageKind::Pencil>> &&
+    dense_kernel_fn_for<F, TypedSpan<StorageKind::Brick>>;
 
 #if CARBON_CUDALIKE_DEVICE_TU
 
@@ -58,37 +67,19 @@ concept dense_kernel_fn = requires(F fn, Span span, Idx idx) {
  *              @c if constexpr -specialise the slab path (pass the span into user lambdas as
  *              @c auto ).
  */
-// template <typename F, StorageKind Kind>
-// requires dense_kernel_fn<F> __global__ void
-// dense_grid_kernel(TypedSpan<Kind> span,
-//                   ::carbon::DataView view,
-//                   F fn) {
-//   const int64_t ix = static_cast<int64_t>(blockIdx.x * blockDim.x + threadIdx.x);
-//   const int64_t iy = static_cast<int64_t>(blockIdx.y * blockDim.y + threadIdx.y);
-//   const int64_t iz = static_cast<int64_t>(blockIdx.z * blockDim.z + threadIdx.z);
-//   // Copy out of parameter space so lambdas taking the span by reference do not address the
-//   // by-value parameter through the local window (matches the DenseDisgDistributed kernel).
-//   const ValidatedIdx r = span.set_and_validate(view, ix, iy, iz);
-//   if (!r.valid) {
-//     return;
-//   }
-//   fn(span, r.idx);
-// }
-
-// detail/backend/cudalike/dense_distributed_kernel.h
-template <typename F, StorageKind Kind>
-requires dense_kernel_fn<F> __global__ void
-dense_grid_kernel(Span span,                  // ← back to Span (matches typed_launch)
-                  ::carbon::DataView view,
+template <::carbon::DataView View, StorageKind Kind, typename F>
+requires dense_kernel_fn_for<F, TypedSpan<Kind>> __global__ void
+dense_grid_kernel(TypedSpan<Kind> span,
                   F fn) {
   const int64_t ix = static_cast<int64_t>(blockIdx.x * blockDim.x + threadIdx.x);
   const int64_t iy = static_cast<int64_t>(blockIdx.y * blockDim.y + threadIdx.y);
   const int64_t iz = static_cast<int64_t>(blockIdx.z * blockDim.z + threadIdx.z);
-  const ValidatedIdx r = span.set_and_validate(view, ix, iy, iz);
+  const TypedSpan<Kind> local{span};
+  const ValidatedIdx r = local.template set_and_validate<View>(ix, iy, iz);
   if (!r.valid) {
     return;
   }
-  fn(span, r.idx);
+  fn(local, r.idx);
 }
 
 #endif

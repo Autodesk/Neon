@@ -227,33 +227,41 @@ public:
    * (in any order) writes every owned cell exactly once — same coverage as a single
    * Standard launch.
    */
+  template <::carbon::DataView View>
+  [[nodiscard]] CARBON_HD constexpr auto
+  iter_extent() const noexcept -> int64_3d {
+    const int64_3d owned = logic_extent();
+    if constexpr (View == ::carbon::DataView::Standard) {
+      return owned;
+    } else if constexpr (View == ::carbon::DataView::Internal) {
+      const int64_t ix = owned.x - 2 * halo_.x;
+      const int64_t iy = owned.y - 2 * halo_.y;
+      const int64_t iz = owned.z - 2 * halo_.z;
+      return int64_3d{ix > 0 ? ix : 0, iy > 0 ? iy : 0, iz > 0 ? iz : 0};
+    } else {
+      if (legacy_slab_ && halo_.x == 0 && halo_.y == 0) {
+        return int64_3d{owned.x, owned.y, halo_.z > 0 ? 2 * halo_.z : 0};
+      }
+      const int64_t shell = make_shell_bands_(haloed_extent_, halo_).total;
+      if (shell == 0) {
+        return int64_3d{0, 0, 0};
+      }
+      const int64_t w = shell >= kShellRowWidth ? kShellRowWidth : shell;
+      return int64_3d{w, (shell + w - 1) / w, 1};
+    }
+  }
+
   [[nodiscard]] CARBON_HD constexpr auto
   iter_extent(::carbon::DataView view) const noexcept -> int64_3d {
-    const int64_3d owned = logic_extent();
     switch (view) {
       case ::carbon::DataView::Standard:
-        return owned;
-
-      case ::carbon::DataView::Internal: {
-        const int64_t ix = owned.x - 2 * halo_.x;
-        const int64_t iy = owned.y - 2 * halo_.y;
-        const int64_t iz = owned.z - 2 * halo_.z;
-        return int64_3d{ix > 0 ? ix : 0, iy > 0 ? iy : 0, iz > 0 ? iz : 0};
-      }
-
-      case ::carbon::DataView::Boundary: {
-        if (legacy_slab_ && halo_.x == 0 && halo_.y == 0) {
-          return int64_3d{owned.x, owned.y, halo_.z > 0 ? 2 * halo_.z : 0};
-        }
-        const int64_t shell = make_shell_bands_(haloed_extent_, halo_).total;
-        if (shell == 0) {
-          return int64_3d{0, 0, 0};
-        }
-        const int64_t w = shell >= kShellRowWidth ? kShellRowWidth : shell;
-        return int64_3d{w, (shell + w - 1) / w, 1};
-      }
+        return iter_extent<::carbon::DataView::Standard>();
+      case ::carbon::DataView::Internal:
+        return iter_extent<::carbon::DataView::Internal>();
+      case ::carbon::DataView::Boundary:
+        return iter_extent<::carbon::DataView::Boundary>();
     }
-    return owned;
+    return logic_extent();
   }
 
   /**
@@ -439,6 +447,12 @@ public:
    * @c (ix, iy, iz) is within @c iter_extent(view); kernels should early-out on a @c false
    * return.
    */
+  template <::carbon::DataView View>
+  [[nodiscard]] CARBON_HD constexpr auto
+  set_and_validate(int64_t ix,
+                   int64_t iy,
+                   int64_t iz) const noexcept -> ValidatedIdx;
+
   [[nodiscard]] CARBON_HD constexpr auto
   set_and_validate(::carbon::DataView view,
                    int64_t ix,
@@ -573,41 +587,51 @@ Span::linear_offset(const Idx& idx,
          cell.z * xy_slab_elements_ + cell.y * y_stride_ + cell.x;
 }
 
+template <::carbon::DataView View>
+[[nodiscard]] CARBON_HD constexpr auto
+Span::set_and_validate(int64_t ix,
+                       int64_t iy,
+                       int64_t iz) const noexcept -> ValidatedIdx {
+  const int64_3d ext = iter_extent<View>();
+  if (ix < 0 || iy < 0 || iz < 0 || ix >= ext.x || iy >= ext.y || iz >= ext.z) {
+    return ValidatedIdx{Idx{}, false};
+  }
+
+  if constexpr (View == ::carbon::DataView::Standard) {
+    return ValidatedIdx{Idx(halo_.x + ix, halo_.y + iy, halo_.z + iz), true};
+  } else if constexpr (View == ::carbon::DataView::Internal) {
+    return ValidatedIdx{Idx(2 * halo_.x + ix, 2 * halo_.y + iy, 2 * halo_.z + iz), true};
+  } else {
+    if (legacy_slab_ && halo_.x == 0 && halo_.y == 0) {
+      const int64_t owned_z = logic_extent().z;
+      const int64_t bz = (iz < halo_.z) ? (halo_.z + iz) : (owned_z - halo_.z + iz);
+      return ValidatedIdx{Idx(ix, iy, bz), true};
+    }
+
+    // Compact shell: thread (ix, iy) is the linear shell index t (iz is 0 by the range check
+    // above); the padded tail of the last row is invalid.
+    const ShellBands bands = make_shell_bands_(haloed_extent_, halo_);
+    const int64_t t = iy * ext.x + ix;
+    if (t >= bands.total) {
+      return ValidatedIdx{Idx{}, false};
+    }
+    const int64_3d c = shell_cell_(bands, t);
+    return ValidatedIdx{Idx(halo_.x + c.x, halo_.y + c.y, halo_.z + c.z), true};
+  }
+}
+
 [[nodiscard]] CARBON_HD constexpr auto
 Span::set_and_validate(::carbon::DataView view,
                        int64_t ix,
                        int64_t iy,
                        int64_t iz) const noexcept -> ValidatedIdx {
-  const int64_3d ext = iter_extent(view);
-  if (ix < 0 || iy < 0 || iz < 0 || ix >= ext.x || iy >= ext.y || iz >= ext.z) {
-    return ValidatedIdx{Idx{}, false};
-  }
-
   switch (view) {
     case ::carbon::DataView::Standard:
-      return ValidatedIdx{Idx(halo_.x + ix, halo_.y + iy, halo_.z + iz), true};
-
+      return set_and_validate<::carbon::DataView::Standard>(ix, iy, iz);
     case ::carbon::DataView::Internal:
-      return ValidatedIdx{Idx(2 * halo_.x + ix, 2 * halo_.y + iy, 2 * halo_.z + iz), true};
-
-    case ::carbon::DataView::Boundary: {
-      if (legacy_slab_ && halo_.x == 0 && halo_.y == 0) {
-        const int64_t owned_z = logic_extent().z;
-        const int64_t bz = (iz < halo_.z) ? (halo_.z + iz) : (owned_z - halo_.z + iz);
-        return ValidatedIdx{Idx(ix, iy, bz), true};
-      }
-
-      // Compact shell: thread (ix, iy) is the linear shell index t (iz is 0 by the range check
-      // above); the padded tail of the last row is invalid.
-      const ShellBands bands = make_shell_bands_(haloed_extent_, halo_);
-      const int64_t t = iy * ext.x + ix;
-      if (t >= bands.total) {
-        return ValidatedIdx{Idx{}, false};
-      }
-      const int64_3d c = shell_cell_(bands, t);
-      return ValidatedIdx{Idx(halo_.x + c.x, halo_.y + c.y, halo_.z + c.z), true};
-    }
-    
+      return set_and_validate<::carbon::DataView::Internal>(ix, iy, iz);
+    case ::carbon::DataView::Boundary:
+      return set_and_validate<::carbon::DataView::Boundary>(ix, iy, iz);
   }
   return ValidatedIdx{Idx{}, false};
 }
@@ -665,7 +689,15 @@ neighbour_idx(const SpanT& span,
   const int64_3d off = span.offset();
   const BoundaryModeDistributed mode = span.boundary_mode();
 
-  if (span.storage_kind() == StorageKind::Slab) {
+  if constexpr (requires { SpanT::kind; }) {
+    if constexpr (SpanT::kind == StorageKind::Slab) {
+      const int64_t gz = bz + off.z;
+      if ((gz < 0 || gz >= global_extent.z) && !is_periodic(mode, Axis::Z)) {
+        return {};
+      }
+      return NeighbourIdx{Idx(bx, by, bz), true};
+    }
+  } else if (span.storage_kind() == StorageKind::Slab) {
     const int64_t gz = bz + off.z;
     if ((gz < 0 || gz >= global_extent.z) && !is_periodic(mode, Axis::Z)) {
       return {};
