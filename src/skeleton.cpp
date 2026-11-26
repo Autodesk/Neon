@@ -3055,23 +3055,4 @@ Skeleton::export_transfer_matrix_text() -> std::string {
   return os.str();
 }
 
-}  // namespace
-
-auto
-Skeleton::export_dot_png(std::string png_path,
-                         std::string graph_name) -> bool {
-  // Default PNG export is the launch matrix (stream columns × op rows).
-  return export_launch_matrix_dot_png(std::move(png_path), std::move(graph_name));
-}
-
-auto
-Skeleton::export_launch_matrix_dot_png(std::string png_path,
-                                       std::string graph_name) -> bool {
-  const std::string dot_path = sibling_dot_path(png_path);
-  if (!export_launch_matrix_dot_file(dot_path, std::move(graph_name))) {
-    return false;
-  }
-  return render_dot_png(dot_path, png_path);
-}
-
 }  // namespace carbon
