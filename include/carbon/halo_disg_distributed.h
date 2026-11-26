@@ -10,6 +10,7 @@
 #include <carbon/detail/dense_disg_distributed/layout.h>
 #include <carbon/detail/dense_disg_distributed/row_copy.h>
 #include <carbon/detail/halo_build.h>
+#include <carbon/dist_message.h>
 #include <carbon/halo_disg.h>
 #include <carbon/logging.h>
 #include <carbon/stencil.h>
@@ -168,6 +169,19 @@ public:
 #else
     return 0U;
 #endif
+  }
+
+  /**
+   * This rank's cross-rank messages of one exchange, in issue order (one NCCL group); empty
+   * without @c CARBON_HAVE_MPI_NCCL .
+   */
+  [[nodiscard]] auto
+  dist_messages() const -> std::vector<DistMessage> {
+    std::vector<DistMessage> out;
+#ifdef CARBON_HAVE_MPI_NCCL
+    dist_.append_messages(out, 0U);
+#endif
+    return out;
   }
 
   /** Issue the device halo exchange on @p stream (intra-process, then cross-rank). */

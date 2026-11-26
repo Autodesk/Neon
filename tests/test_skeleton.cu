@@ -422,7 +422,7 @@ run_parallel_sibling_subtest(carbon::System& sys,
   //   - per-stream cluster scopes (subgraph cluster_stream_0 / 1);
   //   - all three kernel labels (uv, xy, combine) with DataView tags;
   //   - schedule execution-order edges and cross-stream wait styling.
-  const std::string dot = sk.export_dot("sibling_pipeline");
+  const std::string dot = sk.export_streams_dot("sibling_pipeline");
   auto contains = [&dot](std::string_view needle) -> bool {
     return dot.find(needle) != std::string::npos;
   };
@@ -1523,7 +1523,7 @@ main() {
     fb.set_name("fb_renamed_via_set_name");
     sk_dot.add(build_copy_kernel(dense, fb, fa, "rename_swap"));
 
-    const std::string dot_path1 = sk_dot.export_dot();
+    const std::string dot_path1 = sk_dot.export_streams_dot();
     if (dot_path1.find("fa_renamed_via_set_name") == std::string::npos ||
         dot_path1.find("fb_renamed_via_set_name") == std::string::npos) {
       CARBON_LOG_ERROR(
@@ -1535,7 +1535,7 @@ main() {
     // Path 2: explicit override after all kernels added.
     sk_dot.set_field_label(fa.gpu_buffers().get_uid(), "fa_explicit_override");
     sk_dot.set_field_label(fb.gpu_buffers().get_uid(), "fb_explicit_override");
-    const std::string dot_path2 = sk_dot.export_dot();
+    const std::string dot_path2 = sk_dot.export_streams_dot();
     if (dot_path2.find("fa_explicit_override") == std::string::npos ||
         dot_path2.find("fb_explicit_override") == std::string::npos) {
       CARBON_LOG_ERROR("test_skeleton: DOT export missing set_field_label override");
@@ -1551,7 +1551,7 @@ main() {
 
     // Empty-string clears the override (back to token-snapshot path).
     sk_dot.set_field_label(fa.gpu_buffers().get_uid(), "");
-    const std::string dot_path3 = sk_dot.export_dot();
+    const std::string dot_path3 = sk_dot.export_streams_dot();
     if (dot_path3.find("fa_renamed_via_set_name") == std::string::npos) {
       CARBON_LOG_ERROR(
           "test_skeleton: clearing the override (empty label) did not fall back to "

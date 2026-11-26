@@ -40,7 +40,7 @@
 // density-anchored extrapolation outlet, PeriodicZ span, half-way bounce-back at
 // the cylinder. Runs on a single GPU by default (see pick_render_devices);
 // pass --multi-gpu or set CARBON_WT_MULTI_GPU=1 to use every visible GPU. Hot LBM
-// kernels come from benchmarks/lbm_lid_driven_cavity/src/ unmodified.
+// kernels come from benchmarks/lbm_ldc/src/ unmodified.
 //
 // Build & run
 // -----------

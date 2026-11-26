@@ -23,7 +23,7 @@ Each benchmark builds as a top-level CMake target and lands under
 
 ## Programs
 
-### `lbm_lid_driven_cavity`
+### `lbm_ldc`
 
 3D lid-driven cavity Lattice-Boltzmann simulation on a uniform Cartesian
 grid. Two-pop pull streaming, half-way bounce-back walls on five faces,
@@ -48,8 +48,18 @@ bounce-back + collision body — through the grid-generic trusted-pull primitive
 `Partition::read_pull`; only the per-slab storage layout and the auto-inserted
 halo family (`Halo` vs `HaloDisg`) differ. This makes `dense` vs `disg` a
 like-for-like measurement of the disaggregated layout on a real LBM workload.
-`--checksum` (total domain mass) is grid-family- and GPU-count-invariant and
-confirms the two families produce identical physics.
+`--checksum` (total domain mass and x-momentum) is grid-family- and
+GPU-count-invariant and confirms the families produce identical physics.
+
+Two more grid families run the same kernel with one MPI rank per GPU:
+`--grid dense_distributed` (`carbon::DenseDistributed`) and
+`--grid disg_distributed` (`carbon::DenseDisgDistributed`). Those split the
+domain over a `carbon::ProcessGrid` chosen by
+`--decomposition slab|pencil|brick` (z; y and z; x, y and z), and pencil and
+brick decompositions exchange the lattice halo on every face-normal
+(`StencilSemantic::LatticeDistributed`). `--precision fp32|fp64` selects
+float or double populations and arithmetic on every grid; the binary
+instantiates all 4 grids × 2 precisions × 3 lattice/collision pairs.
 
 Measured (2×A100 80GB PCIe, D3Q19 + BGK, single precision, N=256):
 
@@ -71,21 +81,21 @@ disaggregated MLUPS differ negligibly.
 Build:
 
 ```bash
-cmake --build build --target carbon_benchmark_lbm_lid_driven_cavity -j
+cmake --build build --target carbon_benchmark_lbm_ldc -j
 ```
 
 Run (single GPU):
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 \
-./build/benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity \
+./build/benchmarks/lbm_ldc/carbon_benchmark_lbm_ldc \
   --n 256 --iters 1000 --warmup 100 --report-every 0
 ```
 
 Run (all visible GPUs):
 
 ```bash
-./build/benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity \
+./build/benchmarks/lbm_ldc/carbon_benchmark_lbm_ldc \
   --n 256 --iters 1000 --warmup 100
 ```
 
@@ -99,10 +109,19 @@ copies. Build the MPI variant into its own tree:
 
 ```bash
 cmake -S . -B build-mpi -DCARBON_ENABLE_MPI=ON
-cmake --build build-mpi --target carbon_benchmark_lbm_lid_driven_cavity -j
+cmake --build build-mpi --target carbon_benchmark_lbm_ldc -j
 mpiexec -n 2 \
-  ./build-mpi/benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity \
+  ./build-mpi/benchmarks/lbm_ldc/carbon_benchmark_lbm_ldc \
   --n 384 --iters 2000 --warmup 200 --overlap standard
+```
+
+The distributed grids take the decomposition on top (one GPU per rank):
+
+```bash
+mpiexec --bind-to none -n 8 \
+  ./build-mpi/benchmarks/lbm_ldc/carbon_benchmark_lbm_ldc \
+  --grid dense_distributed --decomposition brick --gpus 1 \
+  --n 512 --iters 2000 --warmup 200 --overlap standard --hp-halo
 ```
 
 **Device pinning.** If a rank sees more than one GPU it falls back to
@@ -144,10 +163,13 @@ distributed path is numerically faithful.
 | `--ulb R`             |       0.05 | Lid velocity in lattice units; override for fixing Mach while sweeping Re.                                  |
 | `--lattice {q19,q27}` |      `q19` | Lattice stencil. D3Q27 has 8 extra body-diagonal velocities and is required by KBC.                        |
 | `--collision {bgk,kbc}` |    `bgk` | Collision model. KBC requires `--lattice q27`.                                                              |
-| `--grid {dense,disg}` |    `dense` | Grid family. `dense` = `carbon::Dense` (aggregated Cartesian z-slabs); `disg` = `carbon::DenseDisg` (disaggregated five-region LBM layout). Both run the identical hot kernel; only the storage layout + auto-halo family differ. |
-| `--checksum`          |        off | After the loop, Sum-reduce the final populations and print `CHECKSUM=<total mass>`. Grid-family- and GPU-count-invariant; used to verify `dense` vs `disg` numerical parity. |
+| `--precision {fp32,fp64}` | `fp32` | Population and arithmetic precision (float or double; fp64 doubles memory and traffic). |
+| `--grid {dense,disg,dense_distributed,disg_distributed}` | `dense` | Grid family. `dense` = `carbon::Dense` (aggregated Cartesian z-slabs); `disg` = `carbon::DenseDisg` (disaggregated five-region LBM layout); `dense_distributed` / `disg_distributed` = `carbon::DenseDistributed` / `carbon::DenseDisgDistributed` (one MPI rank per GPU, `--decomposition`). All run the identical hot kernel; only the storage layout + auto-halo family differ. |
+| `--decomposition {slab,pencil,brick}` | `slab` | Process decomposition of the distributed grids (split z; y and z; x, y and z). The other grids only accept `slab`. |
+| `--hp-halo`           |        off | Run the Skeleton's halo stream at high priority (needs `--overlap` other than `none`). |
+| `--checksum`          |        off | After the loop, Sum-reduce the final populations and print `CHECKSUM=<total mass> MOMENTUM_X=<total x-momentum>` (also written to the JSON report). Grid-family-, decomposition- and GPU-count-invariant; used to verify numerical parity across grids. |
 | `--report-every N`    |        100 | Log progress every N iterations. Pass `0` to silence the loop.                                              |
-| `--report PATH`       |        off | On success write a structured JSON report to `PATH` (consumed by `scripts/sweep_and_plot.py`).              |
+| `--report PATH`       |        off | On success write a structured JSON report to `PATH` (consumed by `scripts/lbm-sweep-run.sh` and the plotters). |
 | `--label STR`         |     `""`   | Free-form label written into the JSON report under `config.label`. Useful for tagging sweeps.               |
 | `--no-warmup-skip`    |        off | Include warmup in the timing window (debug aid for short runs).                                             |
 
@@ -156,18 +178,19 @@ distributed path is numerically faithful.
 The program prints a one-line summary on stdout that's easy to scrape:
 
 ```
-MLUPS=2497.16 (cavity N=128 iters=150 gpus=1 lattice=q19 collision=bgk)
+MLUPS=2497.16 (cavity N=128 iters=150 gpus=1 local_gpus=1 ranks=1 grid=dense decomposition=slab lattice=q19 collision=bgk precision=fp32)
 ```
 
 plus a more verbose `info`-level line through the carbon logger:
 
 ```
-lbm_lid_driven_cavity: DONE  lattice=q19 collision=bgk timing_window=150 \
-  iters in 0.126s  =>  2497.16 MLUPS (2497.16 MLUPS/GPU)  overall=0.170s
+lbm_ldc: DONE  lattice=q19 collision=bgk precision=fp32 grid=dense \
+  timing_window=150 iters in 0.126s  =>  2497.16 MLUPS (2497.16 MLUPS/GPU)  overall=0.170s \
+  GPUs=1 local_gpus=1 ranks=1 decomposition=slab
 ```
 
 MLUPS = `(N^3 * iters_timed) / (1e6 * elapsed_seconds)`. `MLUPS/GPU` is the
-total divided by the number of visible GPUs (`carbon::get_all_devices()`).
+total divided by the GPU count over all ranks. Under MPI only rank 0 prints.
 
 When `--report PATH` is passed, a structured JSON report is also written
 (schema `carbon-lbm-report-v1`):
@@ -175,7 +198,7 @@ When `--report PATH` is passed, a structured JSON report is also written
 ```json
 {
   "schema": "carbon-lbm-report-v1",
-  "benchmark": "lbm_lid_driven_cavity",
+  "benchmark": "lbm_ldc",
   "timestamp_utc": "2026-05-06T13:05:51Z",
   "config":  { "n": 256, "iters": 600, "warmup": 200, "lattice": "q19",
                "collision": "bgk", "q": 19, "re": 100.0, "ulb": 0.05,
@@ -191,83 +214,39 @@ When `--report PATH` is passed, a structured JSON report is also written
 }
 ```
 
+Current reports also carry `config.precision`, `config.grid`,
+`config.decomposition`, `config.process_grid` (`[x, y, z]`, or `null` for the
+single-process grids), `config.overlap`, `config.hp_halo`, and
+`system.world_size` / `system.local_gpu_count` / `system.rank`;
+`system.gpu_count` counts the GPUs of every rank and `results.mlups_per_gpu`
+is `mlups / gpu_count`. With `--checksum`, `results.checksum_mass` and
+`results.checksum_momentum_x` hold the two checksums.
+
 `effective_bandwidth_gb_s` assumes the pull-stream + ping-pong layout
-(2 × Q × `sizeof(float)` bytes per cell update) and is what to compare
-against the GPU's HBM peak when sanity-checking new sizes.
+(2 × Q × `sizeof(Real)` bytes per cell update, 4 for fp32 and 8 for fp64) and
+is what to compare against the GPU's HBM peak when sanity-checking new sizes.
 
 #### Sweeps + plots (Neon-style figures)
 
-`scripts/sweep_and_plot.py` drives a parameter sweep over the binary and
-plots the resulting `*.json` reports the same way the Neon paper presents
-LBM throughput — MLUPS on the y-axis vs N (size sweep) or vs GPU count
-(strong scaling), one curve per `(lattice, collision, label, gpus)` series.
-Standard library + `matplotlib` only.
-
-Single-GPU size sweep (10 points from 64 to 384, ≈40 s on an A100):
-
-```bash
-python3 benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py \
-  --bench ./build/benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity \
-  --mode sweep+plot \
-  --output-dir reports/single_gpu_q19_bgk \
-  --sizes 64 96 128 160 192 224 256 288 320 384 \
-  --gpus 1 \
-  --lattice q19 --collision bgk \
-  --iters 600 --warmup 200 \
-  --label "single A100 80GB PCIe" \
-  --plot-x size \
-  --plot-out reports/single_gpu_q19_bgk/mlups_vs_n.png
-```
-
-Multi-config comparison plot (3 model combos × 8 sizes on one axes):
+`lbm_ldc/scripts/lbm-sweep-run.sh` builds the binary (in Docker,
+or on the host with `runner: local`) and runs the experiments a YAML file
+lists: strong scaling, domain size or best-family maps, over any lattice /
+collision pair, precision, grid, decomposition, transport (Peeraccess, NCCL,
+MPI (P2P)) and hp-halo setting. Every distinct run is done once and writes
+one JSON report to `lbm_ldc/data/json/`; the plotters in
+`lbm_ldc/scripts/plotting/` take the same YAML and draw MLUPS
+per GPU (perfect strong scaling is flat). Quick check on one GPU, no Docker:
 
 ```bash
-for combo in "q19 bgk" "q27 bgk" "q27 kbc"; do
-  read lat coll <<< "$combo"
-  python3 benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py \
-    --mode sweep \
-    --output-dir reports/model_compare \
-    --sizes 64 96 128 160 192 224 256 320 \
-    --lattice $lat --collision $coll \
-    --label "A100 80GB PCIe"
-done
-python3 benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py \
-  --mode plot \
-  --output-dir reports/model_compare \
-  --plot-x size --plot-y mlups \
-  --plot-out reports/model_compare/mlups_vs_n_models.png
+cfg=benchmarks/lbm_ldc/scripts/examples/local-quick.yml
+./benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh $cfg
+python3 benchmarks/lbm_ldc/scripts/plotting/plot_scaling.py --config $cfg
 ```
 
-Strong-scaling sweep at fixed N=256 across 1..G GPUs:
-
-```bash
-python3 benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py \
-  --mode sweep+plot \
-  --output-dir reports/strong_scaling_n256 \
-  --sizes 256 \
-  --gpus 1 2 \
-  --lattice q19 --collision bgk \
-  --iters 1200 --warmup 400 \
-  --plot-x gpus --plot-y mlups \
-  --plot-out reports/strong_scaling_n256/mlups_vs_gpus.png
-```
-
-Useful flags:
-
-| Flag                  | Meaning                                                                       |
-| --------------------- | ----------------------------------------------------------------------------- |
-| `--mode`              | `sweep`, `plot`, or `sweep+plot` (default).                                   |
-| `--input-dirs`        | `plot` mode: one or more report dirs to merge onto a single figure.           |
-| `--plot-x`            | `size` (MLUPS vs N, default) or `gpus` (strong scaling).                      |
-| `--plot-y`            | `mlups` (default), `mlups_per_gpu`, or `bandwidth` (effective HBM GB/s).      |
-| `--dry-run`           | `sweep` mode: print every command without executing.                          |
-
-GPU sweeps select consecutive devices via `CUDA_VISIBLE_DEVICES=0,...,g-1`,
-so `--gpus 1 2 4` requires at least 4 visible devices. For carbon built
-with `-DCARBON_ENABLE_MPI=ON`, replace the binary invocation in the script
-(see `run_one`) with an `mpiexec -n $gpus ...` wrapper if you want
-distributed sweeps; the JSON report's `gpu_count` will then reflect ranks
-× one-GPU-per-rank.
+See the [quick start](lbm_ldc/README.md) for more examples and
+[`lbm_ldc/scripts/README.md`](lbm_ldc/scripts/README.md)
+for every key; [`lbm_ldc/reference/`](lbm_ldc/reference/)
+holds the committed results of a full 8× A100 sweep.
 
 #### Reference data points
 
@@ -316,8 +295,9 @@ from extra memory bandwidth. The remaining ~2× comes from the pull-stream
 
 #### Implementation notes
 
-- Two `carbon::Dense::Field<float, Q>` populations (ping-pong, with `Q ∈
-  {19, 27}`); one `carbon::Dense::Field<int32_t, 1>` cell-type field
+- Two `Grid::Field<Real, Q>` populations (ping-pong, with `Q ∈ {19, 27}`,
+  `Real` = `float` or `double` from `--precision`, and `Grid` any of the four
+  grid families); one `Grid::Field<int32_t, 1>` cell-type field
   carrying both the classification (Bulk / BounceBack / MovingWall) and
   the precomputed `wall_neighbour_bits` mask packed into a single int
   (4-bit class + up to 28-bit mask, plenty for D3Q27's 27-direction mask).

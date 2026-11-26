@@ -477,7 +477,7 @@ run_solver(DenseGrid& grid,
                                              std::string{"jacobi"} + tag)) {
         std::fprintf(stderr, "jacobi_nvidia: failed to write %s%s.dot\n", dot_prefix.c_str(), tag);
       }
-      if (!sk->export_dot_file(dot_prefix + tag + "_streams.dot")) {
+      if (!sk->export_streams_dot_file(dot_prefix + tag + "_streams.dot")) {
         std::fprintf(stderr, "jacobi_nvidia: failed to write %s%s_streams.dot\n",
                      dot_prefix.c_str(), tag);
       }

@@ -1,0 +1,57 @@
+# Committed reference results: 8x A100-SXM4-40GB DGX, Carbon q19:bgk fp32.
+#
+# The same experiments as scripts/lbm-sweep.yml (see it for every key), with the
+# reports in json/ and the figures in plots/<experiment>/ of this folder:
+#
+#   python3 benchmarks/lbm_ldc/scripts/plotting/plot_scaling.py \
+#       --config benchmarks/lbm_ldc/reference/lbm-sweep.yml
+#   (likewise plot_disg_vs_dense.py and plot_best_family.py)
+#
+# Timing: the 840 runs of the grids experiment used warmup 400 + 5 x 1000 steps
+# (the median repetition is reported). The rest (the N=128..224 and 544..608 sizes
+# and the 1-GPU NCCL / MPI (P2P) runs) come from earlier sweeps with warmup 400 +
+# 1 x 1600 steps. Running the sweep with this file redoes those 210 runs.
+#
+# To refresh the reference, run the sweep into data/ and copy data/json/ and
+# data/plots/ here.
+
+data_dir: benchmarks/lbm_ldc/reference
+warmup: 400
+iters_per_rep: 1000
+reps: 5
+overlap: standard
+
+configs: [q19:bgk]
+precisions: [fp32]
+
+experiments:
+  grids:
+    type: strong_scaling
+    sizes: {start: 256, stop: 512, step: 64}
+    gpus: {start: 1, stop: 8, step: 1}
+    grids: [dense, disg, dense_distributed, disg_distributed]
+    decompositions: [slab, pencil, brick]
+    transports: [intra, mpi, mpip2p]
+    hp_halo: ["off", "on"]
+
+  domain_size:
+    type: domain_size
+    sizes: {start: 128, stop: 608, step: 32}
+    gpus: [1, 8]
+    grids: [dense, disg]
+
+  best_family:
+    type: best_family
+    sizes: {start: 128, stop: 608, step: 32}
+    gpus: [1, 2, 4, 8]
+    grids: [dense, disg]
+    transports: [intra, mpi]
+    mpi_single_gpu: true
+
+  n512:
+    type: strong_scaling
+    sizes: [512]
+    gpus: [1, 2, 4, 8]
+    grids: [dense, disg]
+    mpi_single_gpu: true
+    plots: [vs_gpus]

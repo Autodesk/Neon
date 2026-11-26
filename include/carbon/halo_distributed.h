@@ -9,6 +9,7 @@
 #include <carbon/detail/halo_build.h>
 #include <carbon/detail/halo_distributed_build.h>
 #include <carbon/detail/halo_pack.h>
+#include <carbon/dist_message.h>
 #include <carbon/logging.h>
 #include <carbon/stencil.h>
 #include <carbon/system.h>
@@ -227,6 +228,38 @@ public:
 #else
     return 0U;
 #endif
+  }
+
+  /**
+   * This rank's cross-rank messages of one exchange, in issue order; empty without
+   * @c CARBON_HAVE_MPI_NCCL . Multi-axis layouts issue one NCCL group per staged axis pass
+   * (field-buffer runs, then packed faces), numbered from 0 in @c DistMessage::group ; empty
+   * groups take no number.
+   */
+  [[nodiscard]] auto
+  dist_messages() const -> std::vector<DistMessage> {
+    std::vector<DistMessage> out;
+#ifdef CARBON_HAVE_MPI_NCCL
+    size_t group = 0;
+    const auto add = [&out, &group](const DistTransfer<T>& d) {
+      const size_t before = out.size();
+      d.append_messages(out, group);
+      if (out.size() > before) {
+        ++group;
+      }
+    };
+    if (axis_passes_.empty()) {
+      add(dist_);
+      return out;
+    }
+    for (const AxisPass& pass : axis_passes_) {
+      add(pass.dist);
+#if CARBON_BACKEND_IS_CUDALIKE
+      add(pass.dist_staged);
+#endif
+    }
+#endif
+    return out;
   }
 
   /**

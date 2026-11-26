@@ -87,7 +87,7 @@ main() {
       return EXIT_FAILURE;
     }
 
-    const std::string dot = sk.export_dot();
+    const std::string dot = sk.export_streams_dot();
     if (dot.find("scalar_readback") == std::string::npos) {
       CARBON_LOG_ERROR("test_skeleton_scalar_pattern: DOT missing scalar_readback node");
       return EXIT_FAILURE;

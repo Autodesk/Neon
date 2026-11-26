@@ -16,7 +16,7 @@ formats (carbon-native, HDF5, nanoVDB) plus VTK legacy.
   cover Dense / DenseDisg / Block × CUDA / SYCL × single-GPU / multi-GPU /
   cross-rank × `OverlapMode::{None,Standard,Extended,TwoWayExtended}`, all
   selected at runtime from one source file.
-- **1 benchmark** — `lbm_lid_driven_cavity` (D3Q19/D3Q27 × BGK/KBC) hitting
+- **1 benchmark** — `lbm_ldc` (D3Q19/D3Q27 × BGK/KBC) hitting
   ~5130 MLUPS / ~780 GB/s effective HBM on a single A100 80 GB PCIe at N=256.
 - **Format-check** wired as a CTest entry (`carbon_format_check`).
 
@@ -154,17 +154,22 @@ scripts/docker-build-all.sh --only sycl-rccl # AMD-only path
 mpiexec -n 2 ./build/examples/carbon_example_jacobi_unified --grid dense --overlap standard
 
 # Lid-driven cavity LBM (single GPU, scrape MLUPS=... line on stdout)
-./build/benchmarks/lbm_lid_driven_cavity/carbon_benchmark_lbm_lid_driven_cavity \
+./build/benchmarks/lbm_ldc/carbon_benchmark_lbm_ldc \
     --n 256 --iters 1000 --warmup 200
 
 # LBM under MPI (one rank per GPU)
-mpiexec -n 4 ./build/benchmarks/.../carbon_benchmark_lbm_lid_driven_cavity \
+mpiexec -n 4 ./build/benchmarks/.../carbon_benchmark_lbm_ldc \
     --n 512 --iters 2000 --warmup 200
+
+# LBM on a distributed grid, brick decomposition, double precision
+mpiexec --bind-to none -n 8 ./build/benchmarks/.../carbon_benchmark_lbm_ldc \
+    --grid dense_distributed --decomposition brick --gpus 1 --precision fp64 --n 512
 ```
 
-The LBM benchmark also emits a structured JSON report (`--report PATH`) consumable by
-`benchmarks/lbm_lid_driven_cavity/scripts/sweep_and_plot.py`, which renders MLUPS-vs-N
-or strong-scaling figures.
+The LBM benchmark also emits a structured JSON report (`--report PATH`). The sweep script
+`benchmarks/lbm_ldc/scripts/lbm-sweep-run.sh` runs whole experiment matrices
+from one YAML and the plotters next to it render MLUPS-per-GPU vs N or strong-scaling
+figures; see [`benchmarks/lbm_ldc/README.md`](benchmarks/lbm_ldc/README.md).
 
 ## Use from another project
 

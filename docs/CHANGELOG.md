@@ -6615,3 +6615,105 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   (cached `storage_unit_`, DenseDisg-identical slab pull, pencil/brick out of line).
   Closes the ~0.67× slab MLUPS gap vs `DenseDisg` / `DenseDistributed` on 8-GPU
   N=256 standard-overlap A/B (now ~parity).
+- **2026-11 — One LBM benchmark for every grid; plots in MLUPS per GPU.**
+  `benchmarks/lbm_lid_driven_cavity_distributed` is merged into
+  `benchmarks/lbm_lid_driven_cavity` and deleted. The one binary takes
+  `--grid dense|disg|dense_distributed|disg_distributed`,
+  `--decomposition slab|pencil|brick` (distributed grids), `--hp-halo`, and the new
+  `--precision fp32|fp64`, which works on all four grids (24 instantiations:
+  4 grids × 2 precisions × 3 lattice/collision pairs). `--checksum` prints
+  `CHECKSUM=<mass> MOMENTUM_X=<x-momentum>` and writes both to the JSON report, which
+  also gains `config.precision`, and `bytes_per_update` now uses `sizeof(Real)`. The
+  D3Q19 BGK fast path moved into `src/lbm_kernels.h` as a functor templated on
+  `Real`, together with `population_halo_semantic` (`LatticeDistributed` on
+  pencil / brick). Output is bit-identical to both old binaries in every overlapping
+  case (q19/bgk and q27/kbc fp32 on all grids, fp64 on dense / disg), fp64 checksums
+  agree across all grids and decompositions, and MLUPS is unchanged (within 0.1%).
+  `q27`+`kbc`+`fp64` still fails to launch (too many resources), as before.
+  Scripts: `scripts/lbm-dgx-sweep-run.sh` runs every LDC matrix from one YAML (new keys
+  `decompositions`, `gpus_pencil`, `gpus_brick`, `hp_halo`, `overlap`,
+  `reference_dir` / `reference_prefix` / `reference_label`); the distributed sweep
+  scripts and `plot_neon_fig7.py` are gone, and `data/lbm-dist-sweep` and
+  `data/lbm-disg-vs-dense` moved under the benchmark with converted YAMLs. Plots:
+  every scaling figure now shows MLUPS per GPU with an ideal line at the 1-GPU
+  reference (`scripts/plotting/plot_scaling.py`, shared loader `lbm_reports.py`);
+  the hp-halo speedup and disg/dense ratio plots stay. `sweep_and_plot.py` defaults
+  to `--plot-y mlups_per_gpu` and gains `--grids`. Both distributed result sets were
+  re-run for the new plots (their JSON reports had never been committed; they now
+  are, like those of the other result sets). On
+  8×A100-SXM4-40GB with hp-halo, `DenseDisgDistributed` matches `DenseDistributed` on
+  slab (1.00–1.02×) but reaches only 0.30–0.37× on pencil and 0.34–0.41× on brick;
+  the pre-merge distributed binary at the same commit gives the same numbers, so
+  the pencil / brick path (out of line since the slab specialization) is the
+  next thing to optimise.
+- **2026-11 — LDC scripts: one runner, YAML-driven plotters.** The fixed DGX run
+  scripts `lbm-dgx-a100-40gb-run.sh`, `lbm-dgx-a100-40gb-run-colormap.sh` and
+  `lbm-n512-gpu-scaling-run.sh` (about 540 lines of copies of the generic runner) and
+  the plot wrappers `lbm-dgx-a100-40gb-plot.py` / `lbm-n512-gpu-scaling-plot.py` are
+  gone. Their result sets now carry frozen YAMLs for `lbm-dgx-sweep-run.sh` and a
+  `reproduce.sh` like the other sets, with the same run matrices and iteration counts.
+  New sweep keys: `mpi_single_gpu` runs NCCL / MPI (P2P) of dense / disg at 1 GPU too
+  (one rank pinned to GPU 0), and `plots` selects the `plot_scaling.py` figures
+  (`vs_gpus`, `vs_n`, `hp_speedup`). `plot_scaling.py` lost its fixed-set mode
+  (`--config` is required), and the colormap plotter became the generic
+  `plotting/plot_best_family.py --config`. The committed reports and PNGs of those
+  two sets are renamed by series (`<prefix>-q19-bgk-fp32-...`; N=512 prefix
+  `lbm-n512-scaling` becomes `lbm-n512-gpu-scaling`, its folder name).
+- **2026-11 — LDC: all four grids in one result set.** `data/lbm-dgx-sweep` now runs
+  Dense, DenseDisg, DenseDistributed and DenseDisgDistributed with the same settings
+  (N=256..512, NCCL / MPI (P2P) for all, Peeraccess for the single-process grids,
+  slab / pencil / brick for the distributed ones, hp-halo off and on; 840 runs) and
+  replaces `data/lbm-dist-sweep` and `data/lbm-disg-vs-dense`. New `plots` entry
+  `grids` in `plot_scaling.py`: `<series>-grids-n<N>.png` draws every grid on shared
+  axes, at the same transport (NCCL, slab, hp-halo off) and at each grid's fastest
+  configuration per GPU count, with a table of the winners. Every result set
+  (`lbm-dgx-sweep`, `lbm-dgx-a100-40gb`, `lbm-n512-gpu-scaling`) was re-run with the
+  merged benchmark and these scripts (1152 runs, none failed). On 8×A100-SXM4-40GB,
+  NCCL slab: the Disg layouts lead from 3 GPUs on (N=512, 8 GPUs: DenseDisg 7724,
+  DenseDisgDistributed 7712, DenseDistributed 7545, Dense 7489 MLUPS/GPU); hp-halo wins
+  almost everywhere (up to 1.30× at N=256). DenseDisgDistributed on pencil / brick
+  stays at 0.30–0.40× of DenseDistributed with NCCL (0.41–0.85× with MPI (P2P)).
+- **2026-11 — LDC scripts: typed experiments, one report pool.** The result sets ran
+  1152 runs of which only 1050 were distinct, because each set had its own folder and
+  timing. Now one YAML lists *experiments*, each with a `type` (`strong_scaling`,
+  `domain_size`, `best_family`) that picks its figures and its own run matrix, under
+  global keys (timing, overlap, runner, data folder) shared by all; the renamed
+  `scripts/lbm-sweep-run.sh` runs every distinct run once into
+  `data/json/<lattice>-<collision>-<precision>-<label>-n<N>-g<G>.json` and reuses a
+  report only if its iters / warmup / reps / overlap match (`--only` picks
+  experiments). It gains `runner: local` (host cmake / nvcc / mpiexec, no Docker) and
+  `data/trace.log`, a per-run completion bar with elapsed time, ETA and status. The
+  plotters take `--config`, `--data-dir`, `--only` and write
+  `plots/<experiment>/`. `data/` is git-ignored; `reference/` holds the committed
+  copy (YAML, 1050 reports converted from the three old sets without re-running,
+  figures). Gone: `sweep_and_plot.py`, `run_local_single_gpu_n256.sh`,
+  `run_local_full_matrix.sh` (replaced by `scripts/examples/local-quick.yml`), the
+  per-set `reproduce.sh`, the `prefix` / `reference_dir` / `reference_prefix` keys and
+  the loader's fallback to the names of the retired distributed sweep scripts.
+- **2026-11 — LDC benchmark renamed `lbm_ldc`.** `benchmarks/lbm_lid_driven_cavity/`
+  is now `benchmarks/lbm_ldc/` (source `lbm_ldc.cu`, target and binary
+  `carbon_benchmark_lbm_ldc`); the log tag and the JSON report's `benchmark` field
+  follow. Scripts, YAMLs, docs and the include path of the examples are updated;
+  the committed reference reports keep the old `benchmark` value they were written
+  with.
+- **2026-11 — Halo transfer matrix from the Skeleton.** `DistOp` / `DistMessage` move to
+  the NCCL-free `<carbon/dist_message.h>`; the four dense halo descriptors gain
+  `dist_messages()` (this rank's cross-rank messages of one exchange with element count
+  and bytes, empty without MPI),
+  surfaced through `KernelImpl::dist_messages()` / `Kernel::dist_messages()`. `Skeleton`
+  gains `halo_messages()` (per halo launch, in `run()` order), the collective
+  `gather_halo_messages()` (count and lists broadcast from each rank) and
+  `export_transfer_matrix_csv[_file]()` / `export_transfer_matrix_text()`. All of it
+  reads the compiled halo kernels: nothing is launched. LBM adds `--export-transfers PATH`
+  and `--compile-only` (exit before the solver loop) plus
+  `scripts/plotting/plot_transfers.py` (rank × message heatmap). N=512
+  DenseDisgDistributed on 8 ranks: slab sends 2 × 5.24 MB per interior rank; pencil
+  1x2x4 sends 7 messages (2.62 MB z-faces, 3.41 MB y-faces, 26.6 KB edges) per interior
+  rank; brick 2x2x2 sends 6 per rank, 12.88 MB in total.
+- **2026-11 — `Skeleton::export_dot` defaults to the launch matrix.** `export_dot()` /
+  `export_dot_file()` now return / write `export_launch_matrix_dot()`, matching
+  `export_dot_png()`, so `log_dot_on_compile`, the examples' `--dot` logs and dumps and the
+  Python `ioToDot` all produce the launch matrix. The stream-cluster graph is renamed
+  `export_streams_dot()` / `export_streams_dot_file()`; the `*_streams.dot` sidecars of
+  jacobi_nvidia, cg and LBM `--export-dot-streams`, and the tests that check its text
+  (stream clusters, field labels, region-mask tooltips, the copy stream) use the new names.

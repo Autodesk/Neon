@@ -98,7 +98,7 @@ lattice_components(LatticeKind l) noexcept -> int {
 }
 
 // Velocity tables. The "natural" orderings match Carbon's LBM benchmark headers
-// (benchmarks/lbm_lid_driven_cavity/src/d3q19.h / d3q27.h); the "_grouped"
+// (benchmarks/lbm_ldc/src/d3q19.h / d3q27.h); the "_grouped"
 // variants are the same set of velocities permuted so c.z<0 entries come first,
 // then c.z==0, then c.z>0 -- the layout that lets the disg lattice halo collapse
 // to one fused transfer per direction per pair.

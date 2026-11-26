@@ -160,6 +160,15 @@ public:
     halo_.launch_on_host(stream);
   }
 
+  [[nodiscard]] auto
+  dist_messages() const -> std::vector<DistMessage> override {
+    if constexpr (requires(const HaloT& h) { h.dist_messages(); }) {
+      return halo_.dist_messages();
+    } else {
+      return {};
+    }
+  }
+
   /** The wrapped halo descriptor. */
   [[nodiscard]] auto
   halo() const noexcept -> const HaloT& {
