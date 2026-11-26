@@ -664,9 +664,10 @@ subtest_ignore_and_determinism(carbon::System& sys,
   if (has(list_ignored, "region {") || !has(list_ignored, "region_masks=ignored")) {
     return fail("export_kernel_list_dot: ignored masks must be reported, not annotated");
   }
-  const std::string dot_masked = sk_a.export_dot("masked");
-  if (!has(dot_masked, "region {0}") || has(sk_unmasked.export_dot("unmasked"), "region {")) {
-    return fail("export_dot: tooltips must carry non-all masks only");
+  const std::string dot_masked = sk_a.export_streams_dot("masked");
+  if (!has(dot_masked, "region {0}") ||
+      has(sk_unmasked.export_streams_dot("unmasked"), "region {")) {
+    return fail("export_streams_dot: tooltips must carry non-all masks only");
   }
   return true;
 }

@@ -17,6 +17,7 @@ Run every command from the carbon repository root.
 | `scripts/plotting/plot_scaling.py` | plot MLUPS per GPU vs GPUs and vs N, the hp-halo speedup, and all grids on shared axes |
 | `scripts/plotting/plot_disg_vs_dense.py` | plot the DenseDisg / Dense ratio |
 | `scripts/plotting/plot_best_family.py` | colour an N × GPU-count map by the fastest of Dense / DenseDisg × Peeraccess / NCCL |
+| `scripts/plotting/plot_transfers.py` | plot the rank × message halo transfer matrix of `--export-transfers` |
 
 A YAML file lists *experiments*, each with a type (`strong_scaling`,
 `domain_size`, `best_family`) that decides its figures, and its own run
@@ -140,3 +141,20 @@ python3 benchmarks/lbm_ldc/scripts/plotting/plot_scaling.py --config $cfg
 [`reference/`](reference/) is a committed copy of a full DGX sweep: its YAML,
 1050 JSON reports and the figures. To plot your own `data/` against the
 same experiments, pass `--data-dir benchmarks/lbm_ldc/data`.
+
+## Example 6 — halo transfers per rank, without running
+
+`--export-transfers PATH` reads the cross-rank halo messages of one iteration
+from the compiled skeleton and writes them as CSV (one line per rank ×
+message: launch, NCCL group, send / receive, peer rank, bytes); rank 0 also
+logs the rank × message matrix. `--compile-only` exits before the solver
+loop, so no iteration runs.
+
+```bash
+mpiexec -n 8 build-mpi/benchmarks/lbm_ldc/carbon_benchmark_lbm_ldc \
+    --grid disg_distributed --decomposition pencil --gpus 1 --n 512 \
+    --export-transfers benchmarks/lbm_ldc/data/disg_distributed-pencil-mpi-g8-transfers.csv --compile-only
+python3 benchmarks/lbm_ldc/scripts/plotting/plot_transfers.py \
+    benchmarks/lbm_ldc/data/disg_distributed-pencil-mpi-g8-transfers.csv
+# -> data/disg_distributed-pencil-mpi-g8-transfers.png: rank on y, message on x, size as colour
+```

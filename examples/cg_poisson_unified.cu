@@ -657,7 +657,7 @@ run_cg(Grid& grid,
         if (!sk.export_launch_matrix_dot_file(base + ".dot", std::string{"cg_"} + tag)) {
           CARBON_LOG_ERROR("cg_poisson_unified: failed to write {}.dot", base);
         }
-        if (!sk.export_dot_file(base + "_streams.dot", std::string{"cg_"} + tag)) {
+        if (!sk.export_streams_dot_file(base + "_streams.dot", std::string{"cg_"} + tag)) {
           CARBON_LOG_ERROR("cg_poisson_unified: failed to write {}_streams.dot", base);
         }
         if (!sk.export_launch_order_file(base + ".txt")) {

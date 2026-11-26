@@ -155,6 +155,11 @@ struct Options {
   std::string export_dot_path = "";
   std::string export_dot_png_path = "";
   std::string export_dot_streams_path = "";
+  // CSV of every rank's cross-rank halo messages of one sk_ab iteration, read from the
+  // compiled skeleton.
+  std::string export_transfers_path = "";
+  // Stop after compiling the skeletons and writing the exports; no solver iterations.
+  bool compile_only = false;
   // Opt in to carbon::Skeleton CUDA-graph capture + replay of each ping-pong
   // skeleton. Engaged only for single-GPU / single-stream schedules (the
   // OverlapMode::None single-GPU case); a no-op fallback otherwise.
@@ -241,6 +246,15 @@ build_cli(Options& opts) -> clipp::group {
           "PATH). Also writes a sibling .dot file.",
       (option("--export-dot-streams") & value("path", opts.export_dot_streams_path)) %
           "Write the stream-cluster schedule graph (legacy export_dot format) to PATH.",
+      (option("--export-transfers") & value("path", opts.export_transfers_path)) %
+          "Write the cross-rank halo messages of one skeleton iteration as CSV to PATH, read "
+          "from the compiled skeleton (nothing is launched): one row per rank x message with "
+          "its launch, NCCL group, direction, peer rank and bytes. Rank 0 also logs the "
+          "rank x message matrix. Needs an mpiexec launch for cross-rank traffic. Plot with "
+          "scripts/plotting/plot_transfers.py.",
+      option("--compile-only").set(opts.compile_only) %
+          "Exit after compiling the skeletons and writing the --export-* files, without "
+          "running the solver loop.",
       option("--cuda-graph").set(opts.cuda_graph) %
           "Capture + replay each ping-pong skeleton as a CUDA graph (single-GPU / "
           "single-stream only; transparently falls back to eager launch otherwise). "
@@ -721,11 +735,41 @@ run_benchmark(const Options& opts,
     CARBON_LOG_INFO("lbm_ldc: wrote launch-matrix PNG to {}", opts.export_dot_png_path);
   }
   if (!opts.export_dot_streams_path.empty()) {
-    if (!sk_ab.export_dot_file(opts.export_dot_streams_path, "lbm_sk_ab")) {
+    if (!sk_ab.export_streams_dot_file(opts.export_dot_streams_path, "lbm_sk_ab")) {
       CARBON_LOG_ERROR("lbm_ldc: --export-dot-streams failed for {}", opts.export_dot_streams_path);
       return EXIT_FAILURE;
     }
     CARBON_LOG_INFO("lbm_ldc: wrote stream-cluster DOT to {}", opts.export_dot_streams_path);
+  }
+  if (!opts.export_transfers_path.empty()) {
+    // Collective over all ranks: every rank's messages are read from its compiled sk_ab.
+    const std::string matrix = sk_ab.export_transfer_matrix_text();
+    std::ostringstream about;
+    about << "grid=" << opts.grid << "\ndecomposition=" << decomposition_mode_name(dec_mode);
+    if (pg) {
+      const carbon::int32_3d dims = pg->dims();
+      about << "\nprocess_grid=" << dims.x << 'x' << dims.y << 'x' << dims.z;
+    }
+    about << "\nn=" << opts.n << "\nranks=" << world_size << "\ngpus=" << total_gpu_count
+          << "\nlattice=" << lattice_name << "\ncollision=" << collision_name
+          << "\nprecision=" << opts.precision << "\noverlap=" << opts.overlap;
+    if (!sk_ab.export_transfer_matrix_csv_file(opts.export_transfers_path, about.str())) {
+      CARBON_LOG_ERROR("lbm_ldc: --export-transfers failed for {}", opts.export_transfers_path);
+      return EXIT_FAILURE;
+    }
+    if (world_rank == 0) {
+      CARBON_LOG_INFO(
+          "lbm_ldc: cross-rank halo messages of one sk_ab iteration (grid={} "
+          "decomposition={}):\n{}",
+          opts.grid, decomposition_mode_name(dec_mode), matrix);
+      CARBON_LOG_INFO("lbm_ldc: wrote transfer matrix CSV to {}", opts.export_transfers_path);
+    }
+  }
+  if (opts.compile_only) {
+    if (world_rank == 0) {
+      CARBON_LOG_INFO("lbm_ldc: --compile-only, exiting before the solver loop");
+    }
+    return EXIT_SUCCESS;
   }
 
   using Clock = std::chrono::steady_clock;

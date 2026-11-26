@@ -2,6 +2,7 @@
 
 #include <carbon/detail/buffer_group.h>
 #include <carbon/detail/stream_group.h>
+#include <carbon/dist_message.h>
 #include <carbon/distributed.h>
 #include <carbon/export.h>
 #include <carbon/logging.h>
@@ -14,17 +15,6 @@
 #include <vector>
 
 namespace carbon {
-
-/**
- * Direction of a single peer-to-peer NCCL transfer entry.
- *
- * @c Send issues @c ncclSend on this rank's communicator (the local buffer is the source);
- * @c Recv issues @c ncclRecv (the local buffer is the destination).
- */
-enum class DistOp : int {
-  Send = 0,
-  Recv = 1,
-};
 
 /**
  * Asynchronous cross-rank GPU transfer descriptor for the MPI+NCCL build.
@@ -119,6 +109,21 @@ public:
   [[nodiscard]] auto
   entry_count() const noexcept -> size_t {
     return counts_.size();
+  }
+
+  /**
+   * Append the entries @ref operator() issues (non-zero counts, in order) to @p out , tagged
+   * with NCCL group index @p group .
+   */
+  auto
+  append_messages(std::vector<DistMessage>& out,
+                  size_t group) const -> void {
+    for (size_t i = 0; i < counts_.size(); ++i) {
+      if (counts_[i] > 0U) {
+        out.push_back(
+            DistMessage{ops_[i], peer_ranks_[i], counts_[i], counts_[i] * sizeof(T), group});
+      }
+    }
   }
 
   /**
