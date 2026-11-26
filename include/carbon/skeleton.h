@@ -97,6 +97,7 @@
 #include <carbon/access_token.h>
 #include <carbon/data_view.h>
 #include <carbon/detail/graph_replay.h>
+#include <carbon/dist_message.h>
 #include <carbon/export.h>
 #include <carbon/kernel.h>
 #include <carbon/logging.h>
@@ -702,15 +703,15 @@ public:
    * @ref AccessToken::field_name is captured by copy at @c KernelLoader
    * record time, so renaming a @ref Field via @c Field::set_name AFTER
    * adding the kernel that references it does not retroactively rewrite
-   * the existing tokens. @ref export_dot already prefers the most-recent
+   * the existing tokens. @ref export_streams_dot already prefers the most-recent
    * non-empty token name across all kernels, so the typical "rename
    * then add more kernels" pattern works without this API. This setter
    * is the escape hatch for the rarer "rename AFTER all kernels are
    * added" case: the override wins over every token snapshot for the
-   * matching uid in the next @ref export_dot call.
+   * matching uid in the next @ref export_streams_dot call.
    *
    * Calling with an empty @p label removes any prior override for that
-   * uid (so @ref export_dot falls back to the token-snapshot chain).
+   * uid (so @ref export_streams_dot falls back to the token-snapshot chain).
    * No-op when @p field_uid corresponds to a field no kernel in the
    * skeleton ever touched.
    */
@@ -725,7 +726,27 @@ public:
   }
 
   /**
-   * @brief Render the inferred DAG as a GraphViz DOT graph string.
+   * @brief Default schedule visualization: the launch matrix of one @ref run
+   *        iteration as a GraphViz DOT string (same as @ref export_launch_matrix_dot ).
+   *        Lazy-compiles. The stream-cluster graph is @ref export_streams_dot .
+   */
+  [[nodiscard]] auto
+  export_dot(std::string graph_name = "carbon_skeleton") -> std::string {
+    return export_launch_matrix_dot(std::move(graph_name));
+  }
+
+  /**
+   * @brief Write @ref export_dot (the launch matrix) to @p path (GraphViz @c .dot file).
+   * @return @c false if the file could not be opened.
+   */
+  [[nodiscard]] auto
+  export_dot_file(std::string path,
+                  std::string graph_name = "carbon_skeleton") -> bool {
+    return export_launch_matrix_dot_file(std::move(path), std::move(graph_name));
+  }
+
+  /**
+   * @brief Render the inferred DAG as a stream-cluster GraphViz DOT graph string.
    *
    * The graph is a digraph (one node per @c Kernel in user-add order; one edge
    * per inferred dependency). Each node is labelled with the kernel's
@@ -754,25 +775,24 @@ public:
    *         lazy-compiles before rendering so the user does not have to call
    *         @ref compile first.
    */
-  // Definition lives in src/skeleton.cpp (export_dot).
+  // Definition lives in src/skeleton.cpp (export_streams_dot).
   [[nodiscard]] auto
-  export_dot(std::string graph_name = "carbon_skeleton") -> std::string;
+  export_streams_dot(std::string graph_name = "carbon_skeleton") -> std::string;
 
   /**
-   * @brief Write @ref export_dot to @p path (GraphViz @c .dot file).
+   * @brief Write @ref export_streams_dot to @p path (GraphViz @c .dot file).
    * @return @c false if the file could not be opened.
    */
   [[nodiscard]] auto
-  export_dot_file(std::string path,
-                  std::string graph_name = "carbon_skeleton") -> bool;
+  export_streams_dot_file(std::string path,
+                          std::string graph_name = "carbon_skeleton") -> bool;
 
   /**
    * @brief Write a launch-matrix @c .dot beside @p png_path and render PNG via
    *        GraphViz (@c dot -Tpng ). Requires @c dot on @c PATH .
    *
-   * Default schedule visualization is the launch matrix (@ref
-   * export_launch_matrix_dot). For the stream-cluster graph use
-   * @ref export_dot_file then render separately.
+   * Same graph as @ref export_dot (the launch matrix). For the stream-cluster
+   * graph use @ref export_streams_dot_file then render separately.
    * @return @c false if the dot file or render step failed.
    */
   [[nodiscard]] auto
@@ -842,6 +862,59 @@ public:
   [[nodiscard]] auto
   export_kernel_list_dot_file(std::string path,
                               std::string graph_name = "carbon_kernel_list") -> bool;
+
+  /** One halo launch of @ref run and the cross-rank messages it issues on one rank. */
+  struct HaloMessages {
+    size_t seq{0U};      /**< Row of the launch in @ref export_launch_order (1-based). */
+    std::string label{}; /**< Display label, as in the launch matrix. */
+    std::vector<DistMessage> messages{}; /**< In issue order; empty for intra-rank halos. */
+  };
+
+  /**
+   * @brief This rank's cross-rank halo messages of one @ref run iteration, read from the
+   *        compiled halo kernels (user and auto-inserted) in run() order. Nothing is
+   *        launched; lazy-compiles.
+   */
+  [[nodiscard]] auto
+  halo_messages() -> std::vector<HaloMessages>;
+
+  /**
+   * @brief @ref halo_messages of every rank, indexed by world rank (one entry without a
+   *        distributed system). Collective when the bound @ref System is distributed: every
+   *        rank must call it.
+   */
+  [[nodiscard]] auto
+  gather_halo_messages() -> std::vector<std::vector<HaloMessages>>;
+
+  /**
+   * @brief Transfer matrix of one @ref run iteration as CSV, one line per message:
+   *        @c rank,index,seq,kernel,group,op,peer,elements,bytes . @c index numbers the rank's
+   *        messages in issue order across all halo launches (the matrix column), @c seq is
+   *        the launch row from @ref export_launch_order . Collective like
+   *        @ref gather_halo_messages ; every rank gets the full matrix.
+   */
+  [[nodiscard]] auto
+  export_transfer_matrix_csv() -> std::string;
+
+  /**
+   * @brief Write @ref export_transfer_matrix_csv to @p path on world rank 0 (other ranks
+   *        only take part in the gather). Collective.
+   * @param comment Written above the header, each line prefixed with @c "# " (e.g.
+   *                @c "grid=disg_distributed" lines describing the run); empty for none.
+   * @return @c false if rank 0 could not write the file.
+   */
+  [[nodiscard]] auto
+  export_transfer_matrix_csv_file(std::string path,
+                                  std::string_view comment = {}) -> bool;
+
+  /**
+   * @brief Plain-text transfer matrix for logs: one row per rank, one column per message
+   *        in issue order, cells @c "S>3 5.24 MB (1310720)" (send to rank 3, size and
+   *        element count) / @c "R<3 ..." (receive from rank 3), and per-rank totals.
+   *        Collective.
+   */
+  [[nodiscard]] auto
+  export_transfer_matrix_text() -> std::string;
 
   /**
    * @brief Primary execution stream (stream index 0). Matches the @ref Stream
@@ -1225,8 +1298,8 @@ private:
   /** Index in @ref streams_ of the detached copy stream (scalar readback), or @c kNoStream_. */
   size_t copy_stream_idx_{kNoStream_};
   bool has_detached_stream_{false};
-  // Optional per-uid label overrides for @ref export_dot . Populated by
-  // @ref set_field_label ; consulted by export_dot's uid_to_label map
+  // Optional per-uid label overrides for @ref export_streams_dot . Populated by
+  // @ref set_field_label ; consulted by export_streams_dot's uid_to_label map
   // BEFORE the token-snapshot fallback so users can rename fields after
   // adding kernels and still get readable graphs without re-building
   // the pipeline.
@@ -1284,7 +1357,7 @@ private:
 }  // namespace carbon
 
 // Out-of-class member definitions for compile() / run() / compile_step_graph_occ_() /
-// compile_allocate_anchor_events_() / export_dot() / export_launch_order() live in
+// compile_allocate_anchor_events_() / export_streams_dot() / export_launch_order() live in
 // src/skeleton.cpp .
 // User code only needs <carbon/skeleton.h>; the .cpp is statically linked
 // into libcarbon. The Skeleton class above is non-template, so moving the

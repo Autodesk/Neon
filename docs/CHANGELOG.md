@@ -6696,3 +6696,24 @@ This unblocked the matrix on this host: the `sycl` and `hip-nvidia` images build
   follow. Scripts, YAMLs, docs and the include path of the examples are updated;
   the committed reference reports keep the old `benchmark` value they were written
   with.
+- **2026-11 — Halo transfer matrix from the Skeleton.** `DistOp` / `DistMessage` move to
+  the NCCL-free `<carbon/dist_message.h>`; the four dense halo descriptors gain
+  `dist_messages()` (this rank's cross-rank messages of one exchange with element count
+  and bytes, empty without MPI),
+  surfaced through `KernelImpl::dist_messages()` / `Kernel::dist_messages()`. `Skeleton`
+  gains `halo_messages()` (per halo launch, in `run()` order), the collective
+  `gather_halo_messages()` (count and lists broadcast from each rank) and
+  `export_transfer_matrix_csv[_file]()` / `export_transfer_matrix_text()`. All of it
+  reads the compiled halo kernels: nothing is launched. LBM adds `--export-transfers PATH`
+  and `--compile-only` (exit before the solver loop) plus
+  `scripts/plotting/plot_transfers.py` (rank × message heatmap). N=512
+  DenseDisgDistributed on 8 ranks: slab sends 2 × 5.24 MB per interior rank; pencil
+  1x2x4 sends 7 messages (2.62 MB z-faces, 3.41 MB y-faces, 26.6 KB edges) per interior
+  rank; brick 2x2x2 sends 6 per rank, 12.88 MB in total.
+- **2026-11 — `Skeleton::export_dot` defaults to the launch matrix.** `export_dot()` /
+  `export_dot_file()` now return / write `export_launch_matrix_dot()`, matching
+  `export_dot_png()`, so `log_dot_on_compile`, the examples' `--dot` logs and dumps and the
+  Python `ioToDot` all produce the launch matrix. The stream-cluster graph is renamed
+  `export_streams_dot()` / `export_streams_dot_file()`; the `*_streams.dot` sidecars of
+  jacobi_nvidia, cg and LBM `--export-dot-streams`, and the tests that check its text
+  (stream clusters, field labels, region-mask tooltips, the copy stream) use the new names.

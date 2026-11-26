@@ -1,12 +1,18 @@
 # Skeleton DAG export — reference renderings
 
 Visual snapshots of the dependency DAG `carbon::Skeleton` infers from a Jacobi
-ping-pong pipeline, produced by `Skeleton::export_dot` (see
-`<carbon/skeleton.h>`).
+ping-pong pipeline, in the stream-cluster format of
+`Skeleton::export_streams_dot` (see `<carbon/skeleton.h>`).
+
+`Skeleton::export_dot()` / `export_dot_file()` / `export_dot_png()` and the
+`log_dot_on_compile` option render the **launch matrix** by default (same as
+`export_launch_matrix_dot()`, see [Launch order listing](#launch-order-listing));
+the stream-cluster graph shown here is `export_streams_dot()` /
+`export_streams_dot_file()`.
 
 | File | Source |
 |------|--------|
-| `jacobi_skeleton.dot` | Raw GraphViz DOT, captured from `examples/jacobi_unified.cu --dot`'s `CARBON_LOG_INFO("--- DAG (GraphViz DOT) ---")` block. |
+| `jacobi_skeleton.dot` | Raw GraphViz DOT of `export_streams_dot()` for the `examples/jacobi_unified.cu` pipeline (its `--dot` log block printed this format before `export_dot` switched to the launch matrix). |
 | `jacobi_skeleton.svg` | `dot -Tsvg jacobi_skeleton.dot -o jacobi_skeleton.svg` |
 | `jacobi_skeleton.png` | `dot -Tpng -Gdpi=120 jacobi_skeleton.dot -o jacobi_skeleton.png` |
 
@@ -24,6 +30,10 @@ arrows (`u (RW->R)` reads as "predecessor wrote `u`, successor reads `u`");
 node tooltips list each kernel's full token set.
 
 ## Regenerating
+
+`--dot` now logs the launch matrix; to capture the stream-cluster graph again,
+switch the example's `main_pipe.export_dot(...)` call to
+`main_pipe.export_streams_dot(...)` first.
 
 ```bash
 cmake --build build -j
@@ -49,7 +59,7 @@ share no fields and land on distinct streams; the resulting DOT has two
 `cluster_stream_0` / `cluster_stream_1` subgraphs and the
 `copy_xy -> combine` edge is rendered dashed-red to flag the cross-stream
 event-mediated dependency. That test does not currently dump the DOT to disk
-— if you want to see the multi-stream rendering, add an `export_dot` call to
+— if you want to see the multi-stream rendering, add an `export_streams_dot` call to
 the subtest's `sk` instance and pipe through `dot` the same way.
 
 ## Standard overlap scheduling (Neon-style)
@@ -88,11 +98,11 @@ single `run()` — anchor fork record/waits, per-step event waits, kernel launch
 The same sequence is what the CUDA/HIP graph capture path records when
 `Options::use_cuda_graph` is enabled.
 
-`export_dot()` prefixes each schedule node with `#N` (the launch line number) and
+`export_streams_dot()` prefixes each schedule node with `#N` (the launch line number) and
 annotates dashed sync edges with `(rec #R -> wait #W)`. When anchor fork/join is
 active, extra dashed blue edges show the bracket ops.
 
-`export_launch_matrix_dot()` renders the same sequence as a grid: one column per
+`export_launch_matrix_dot()` — the default `export_dot()` — renders the same sequence as a grid: one column per
 stream, one row per operation (anchor syncs, event waits, launches, event
 records). Dashed arrows connect each event record to its waits — red for step
 events, blue for the anchor fork/join — so cross-stream hand-offs read as
@@ -110,6 +120,23 @@ matching `.txt` launch-order files; add `--dot-matrix` for the kernel lists
 `prefix_ab_kernels.dot` / `prefix_ba_kernels.dot`. LBM `--export-dot` /
 `--export-dot-png` likewise default to the launch matrix (`--export-dot-streams`
 keeps the legacy stream-cluster graph). See `tests/test_skeleton_launch_order.cu`.
+
+## Halo transfer matrix
+
+`halo_messages()` lists, for this rank, every halo launch of one `run()` (user
+and auto-inserted, in `run()` order, numbered like the launch-order rows) with
+the cross-rank messages it issues: `DistMessage{op, peer_rank, elements, bytes, group}`
+in issue order, `group` being the NCCL group within the exchange. It reads the
+compiled halo kernels (`Kernel::dist_messages()`), so nothing is launched;
+halos of single-process layouts report no messages.
+
+`gather_halo_messages()`, `export_transfer_matrix_csv[_file]()` and
+`export_transfer_matrix_text()` collect every rank's list (collective on a
+distributed `System`) into a rank × message matrix: CSV
+`rank,index,seq,kernel,group,op,peer,elements,bytes` (the file is written by
+rank 0), or a log table with cells `S>3 5.24 MB (1310720)` / `R<3 ...` (size and
+element count). LBM exposes it as `--export-transfers PATH` (with `--compile-only` to skip the solver loop);
+`benchmarks/lbm_ldc/scripts/plotting/plot_transfers.py` draws the heatmap.
 
 ## Per-phase profiling
 
@@ -205,7 +232,7 @@ and `read(f, M)` / `write(f, M)` / `read_write(f, M)` / `L(f, M)` pin one access
 debugging; `Skeleton::region_masks_honoured()` reports the effective setting.
 
 Inspection: `export_kernel_list_dot()` adds a `region {…}` note under each masked access
-chip, `export_dot()` tooltips list each masked token's region, and both option lines show
+chip, `export_streams_dot()` tooltips list each masked token's region, and both option lines show
 `region_masks=ignored` when masks are off. Unmasked pipelines render exactly as before.
 
 Costs to keep in mind (numbers from `benchmarks/skeleton_region_mask`, see

@@ -13,6 +13,7 @@
 
 #include <carbon/access_token.h>
 #include <carbon/data_view.h>
+#include <carbon/dist_message.h>
 #include <carbon/logging.h>
 #include <carbon/reduce.h>
 #include <carbon/system.h>
@@ -230,6 +231,15 @@ public:
   tokens() const noexcept -> const std::vector<AccessToken>& {
     static const std::vector<AccessToken> empty;
     return empty;
+  }
+
+  /**
+   * @brief Cross-rank messages one launch of this kernel issues on this rank, in issue order.
+   *        Empty for every kind but halos of distributed layouts.
+   */
+  [[nodiscard]] virtual auto
+  dist_messages() const -> std::vector<DistMessage> {
+    return {};
   }
 
   /** Optional human-readable name; empty by default. */

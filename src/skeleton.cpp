@@ -14,7 +14,7 @@
  *                      step-graph rewrite around (halo, stencil) pairs.
  *   - @c compile_allocate_anchor_events_ — start / join events for the
  *                                          per-run bracket on the anchor.
- *   - @c export_dot  — GraphViz DOT renderer for the inferred DAG.
+ *   - @c export_streams_dot — stream-cluster GraphViz DOT renderer for the schedule.
  *   - @c export_launch_order — text listing of one @c run iteration's ops.
  *
  * Splitting these out trims @c <carbon/skeleton.h> by ~700 lines of body
@@ -2541,7 +2541,7 @@ Skeleton::export_kernel_list_dot_file(std::string path,
 }
 
 auto
-Skeleton::export_dot(std::string graph_name) -> std::string {
+Skeleton::export_streams_dot(std::string graph_name) -> std::string {
   compile();
   const std::vector<LaunchOrderOp> launch_ops = build_launch_order_ops_();
   std::unordered_map<size_t, size_t> launch_seq_by_step;
@@ -2810,13 +2810,13 @@ Skeleton::export_dot(std::string graph_name) -> std::string {
 }
 
 auto
-Skeleton::export_dot_file(std::string path,
-                          std::string graph_name) -> bool {
+Skeleton::export_streams_dot_file(std::string path,
+                                  std::string graph_name) -> bool {
   std::ofstream out(path, std::ios::out | std::ios::trunc);
   if (!out) {
     return false;
   }
-  out << export_dot(std::move(graph_name));
+  out << export_streams_dot(std::move(graph_name));
   return out.good();
 }
 
@@ -2858,6 +2858,201 @@ Skeleton::export_launch_matrix_dot_png(std::string png_path,
     return false;
   }
   return render_dot_png(dot_path, png_path);
+}
+
+auto
+Skeleton::halo_messages() -> std::vector<HaloMessages> {
+  compile();
+  std::vector<HaloMessages> out;
+  for (const LaunchOrderOp& op : build_launch_order_ops_()) {
+    if (op.kind != LaunchOrderOpKind::Launch) {
+      continue;
+    }
+    const Kernel& kernel = effective_kernels_[schedule_[op.step_idx].kernel_idx];
+    if (kernel.kind() != KernelKind::Halo) {
+      continue;
+    }
+    out.push_back(HaloMessages{op.seq, step_display_label_(op.step_idx), kernel.dist_messages()});
+  }
+  return out;
+}
+
+auto
+Skeleton::gather_halo_messages() -> std::vector<std::vector<HaloMessages>> {
+  std::vector<HaloMessages> mine = halo_messages();
+#ifdef CARBON_HAVE_MPI_NCCL
+  const Distributed* dist = sys_.distributed();
+  if (dist != nullptr && dist->world_size() > 1) {
+    std::unordered_map<size_t, std::string> label_by_seq;
+    for (const HaloMessages& h : mine) {
+      label_by_seq.emplace(h.seq, h.label);
+    }
+    std::vector<std::vector<HaloMessages>> all(static_cast<size_t>(dist->world_size()));
+    for (int root = 0; root < dist->world_size(); ++root) {
+      const bool is_root = root == dist->world_rank();
+      // Per launch: (seq, message count); then every message of the rank back to back.
+      std::vector<std::uint64_t> launches;
+      std::vector<DistMessage> messages;
+      if (is_root) {
+        for (const HaloMessages& h : mine) {
+          launches.push_back(h.seq);
+          launches.push_back(h.messages.size());
+          messages.insert(messages.end(), h.messages.begin(), h.messages.end());
+        }
+      }
+      std::array<std::uint64_t, 2> sizes{launches.size(), messages.size()};
+      dist->broadcast(sizes.data(), sizeof(sizes), root);
+      launches.resize(sizes[0]);
+      messages.resize(sizes[1]);
+      if (sizes[0] > 0U) {
+        dist->broadcast(launches.data(), sizes[0] * sizeof(std::uint64_t), root);
+      }
+      if (sizes[1] > 0U) {
+        dist->broadcast(messages.data(), sizes[1] * sizeof(DistMessage), root);
+      }
+      std::vector<HaloMessages>& list = all[static_cast<size_t>(root)];
+      if (is_root) {
+        list = mine;
+        continue;
+      }
+      size_t next = 0;
+      for (size_t i = 0; i + 1U < launches.size(); i += 2U) {
+        const size_t seq = launches[i];
+        const size_t count = std::min<size_t>(launches[i + 1U], messages.size() - next);
+        const auto label = label_by_seq.find(seq);
+        list.push_back(HaloMessages{
+            seq, label != label_by_seq.end() ? label->second : "#" + std::to_string(seq),
+            std::vector<DistMessage>(
+                messages.begin() + static_cast<std::ptrdiff_t>(next),
+                messages.begin() + static_cast<std::ptrdiff_t>(next + count))});
+        next += count;
+      }
+    }
+    return all;
+  }
+#endif
+  return {std::move(mine)};
+}
+
+namespace {
+
+[[nodiscard]] auto
+format_bytes(size_t bytes) -> std::string {
+  std::ostringstream s;
+  s << std::fixed;
+  if (bytes >= 1000000U) {
+    s << std::setprecision(2) << static_cast<double>(bytes) / 1e6 << " MB";
+  } else {
+    s << std::setprecision(1) << static_cast<double>(bytes) / 1e3 << " KB";
+  }
+  return s.str();
+}
+
+[[nodiscard]] auto
+csv_quote(std::string_view text) -> std::string {
+  std::string out = "\"";
+  for (const char c : text) {
+    out += c;
+    if (c == '"') {
+      out += '"';
+    }
+  }
+  return out + "\"";
+}
+
+}  // namespace
+
+auto
+Skeleton::export_transfer_matrix_csv() -> std::string {
+  const std::vector<std::vector<HaloMessages>> all = gather_halo_messages();
+  std::ostringstream os;
+  os << "rank,index,seq,kernel,group,op,peer,elements,bytes\n";
+  for (size_t rank = 0; rank < all.size(); ++rank) {
+    size_t index = 0;
+    for (const HaloMessages& h : all[rank]) {
+      for (const DistMessage& m : h.messages) {
+        os << rank << ',' << index++ << ',' << h.seq << ',' << csv_quote(h.label) << ',' << m.group
+           << ',' << (m.op == DistOp::Send ? "send" : "recv") << ',' << m.peer_rank << ','
+           << m.elements << ',' << m.bytes << '\n';
+      }
+    }
+  }
+  return os.str();
+}
+
+auto
+Skeleton::export_transfer_matrix_csv_file(std::string path,
+                                          std::string_view comment) -> bool {
+  const std::string csv = export_transfer_matrix_csv();
+#ifdef CARBON_HAVE_MPI_NCCL
+  const Distributed* dist = sys_.distributed();
+  if (dist != nullptr && dist->world_rank() != 0) {
+    return true;
+  }
+#endif
+  std::ofstream out(path, std::ios::out | std::ios::trunc);
+  if (!out) {
+    return false;
+  }
+  for (size_t begin = 0; begin < comment.size();) {
+    const size_t end = std::min(comment.find('\n', begin), comment.size());
+    out << "# " << comment.substr(begin, end - begin) << '\n';
+    begin = end + 1U;
+  }
+  out << csv;
+  return out.good();
+}
+
+auto
+Skeleton::export_transfer_matrix_text() -> std::string {
+  const std::vector<std::vector<HaloMessages>> all = gather_halo_messages();
+  std::vector<std::vector<DistMessage>> rows(all.size());
+  std::set<std::pair<size_t, std::string>> launches;
+  size_t columns = 0;
+  for (size_t rank = 0; rank < all.size(); ++rank) {
+    for (const HaloMessages& h : all[rank]) {
+      launches.emplace(h.seq, h.label);
+      rows[rank].insert(rows[rank].end(), h.messages.begin(), h.messages.end());
+    }
+    columns = std::max(columns, rows[rank].size());
+  }
+
+  constexpr int kRankW = 6;
+  constexpr int kCellW = 26;
+  std::ostringstream os;
+  os << "halo launches per run():";
+  for (const auto& [seq, label] : launches) {
+    os << "  #" << seq << ' ' << label;
+  }
+  if (launches.empty()) {
+    os << " none";
+  }
+  os << "\ncells: S>p = send to rank p, R<p = receive from rank p; size (elements)\n";
+  os << std::left << std::setw(kRankW) << "rank";
+  for (size_t i = 0; i < columns; ++i) {
+    os << std::setw(kCellW) << ("msg " + std::to_string(i));
+  }
+  os << "sent / received";
+  for (size_t rank = 0; rank < rows.size(); ++rank) {
+    size_t sent = 0;
+    size_t received = 0;
+    os << '\n' << std::setw(kRankW) << rank;
+    for (size_t i = 0; i < columns; ++i) {
+      if (i >= rows[rank].size()) {
+        os << std::setw(kCellW) << "";
+        continue;
+      }
+      const DistMessage& m = rows[rank][i];
+      const bool send = m.op == DistOp::Send;
+      (send ? sent : received) += m.bytes;
+      os << std::setw(kCellW)
+         << ((send ? "S>" : "R<") + std::to_string(m.peer_rank) + " " + format_bytes(m.bytes) +
+             " (" + std::to_string(m.elements) + ")");
+    }
+    os << format_bytes(sent) << " / " << format_bytes(received) << " in " << rows[rank].size()
+       << " msgs";
+  }
+  return os.str();
 }
 
 }  // namespace carbon

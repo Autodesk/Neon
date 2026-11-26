@@ -632,6 +632,15 @@ public:
     return impl_ ? impl_->kind() : KernelKind::Anchor;
   }
 
+  /**
+   * Cross-rank messages one launch issues on this rank (halos of distributed layouts only);
+   * empty otherwise.
+   */
+  [[nodiscard]] auto
+  dist_messages() const -> std::vector<DistMessage> {
+    return impl_ ? impl_->dist_messages() : std::vector<DistMessage>{};
+  }
+
   /** Optional human-readable name; empty string for a default-constructed kernel. */
   [[nodiscard]] auto
   name() const noexcept -> std::string_view {
