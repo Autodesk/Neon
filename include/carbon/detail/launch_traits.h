@@ -45,6 +45,7 @@
 #include <carbon/detail/dense_disg_distributed/reduce_kernel.h>
 #include <carbon/detail/dense_distributed/launch.h>
 #include <carbon/detail/dense_distributed/reduce_kernel.h>
+#include <carbon/detail/dense_distributed/window_launch.h>
 #include <carbon/detail/gpu.h>
 #include <carbon/integer3d.h>
 #include <carbon/logging.h>
@@ -481,6 +482,29 @@ struct ReduceLaunchTraits {
                     int dense_stage1_threads = 0,
                     int dense_stage1_threads_y = 0) -> int64_t {
     const auto span = grid.spans()[g_idx];
+    if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {
+      const auto windows = span.view_windows(view);
+      if (dense_stage1_threads_y > 0) {
+        const int bx = dense_stage1_threads > 0 ? dense_stage1_threads : 32;
+        const int by = dense_stage1_threads_y;
+        int64_t total = 0;
+        for (int i = 0; i < windows.count; ++i) {
+          total += ::carbon::detail::dense_distributed::window_2d_units(windows.windows[i], bx,
+                                                                        by);
+        }
+        return total;
+      }
+      int bt = stage1_block_threads();
+      if (dense_stage1_threads > 0) {
+        bt = dense_stage1_threads;
+      }
+      int64_t total = 0;
+      for (int i = 0; i < windows.count; ++i) {
+        total += ::carbon::detail::dense_distributed::window_flat_units(windows.windows[i], bt);
+      }
+      return total;
+    }
+
     const ::carbon::int64_3d ext = span.iter_extent(view);
     const int64_t cells = static_cast<int64_t>(ext.volume());
     if constexpr (
@@ -513,14 +537,22 @@ struct ReduceLaunchTraits {
   is_empty_domain(const Grid& grid,
                   size_t g_idx,
                   ::carbon::DataView view) -> bool {
-    return grid.spans()[g_idx].iter_extent(view).volume() == 0;
+    const auto span = grid.spans()[g_idx];
+    if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {
+      return span.view_windows(view).total_volume() == 0;
+    }
+    return span.iter_extent(view).volume() == 0;
   }
 
   static auto
   iter_cell_count(const Grid& grid,
                   size_t g_idx,
                   ::carbon::DataView view) -> int64_t {
-    return static_cast<int64_t>(grid.spans()[g_idx].iter_extent(view).volume());
+    const auto span = grid.spans()[g_idx];
+    if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {
+      return span.view_windows(view).total_volume();
+    }
+    return static_cast<int64_t>(span.iter_extent(view).volume());
   }
 
 #if CARBON_BACKEND_IS_CUDALIKE && CARBON_CUDALIKE_DEVICE_TU
@@ -708,6 +740,9 @@ struct ReduceLaunchTraits {
     if constexpr (requires { typename Grid::DisgPolicy; }) {
       ::carbon::log::throw_with_log<std::logic_error>(
           "Kernel::reduce: ReduceFinalize::BlockAtomic is not supported on DenseDisg grids");
+    } else if constexpr (requires { typename Grid::DenseDistributedPolicy; }) {
+      ::carbon::detail::dense_distributed::launch_dense_reduce_block_atomic(
+          q, span, view, fn, out, iter_cells);
     } else {
       ::carbon::detail::sycl_reduce::launch_dense_block_atomic_sum(q, span, view, fn, out,
                                                                    iter_cells);

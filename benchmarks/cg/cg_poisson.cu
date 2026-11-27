@@ -554,7 +554,7 @@ build_matvec(const Grid& grid,
                                            1>& out,
              double invh2,
              std::string name) -> carbon::Kernel {
-  using Span = typename Grid::Span;
+  using Span = typename Grid::Span;   
   using Idx = typename Grid::Idx;
   return carbon::Kernel::compute(
       grid,

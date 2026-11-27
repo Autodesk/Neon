@@ -1,0 +1,569 @@
+diff --git a/include/carbon/detail/backend/cudalike/dense_distributed_kernel.h b/include/carbon/detail/backend/cudalike/dense_distributed_kernel.h
+index 916f1305..771918ed 100644
+--- a/include/carbon/detail/backend/cudalike/dense_distributed_kernel.h
++++ b/include/carbon/detail/backend/cudalike/dense_distributed_kernel.h
+@@ -43,22 +43,25 @@ concept dense_distributed_kernel_fn =
+ 
+ /**
+  * Maps each CUDA thread to @c (ix, iy, iz) = @c blockIdx * blockDim + threadIdx and invokes
+- * @p fn(span, idx) only for threads that fall inside @c span.iter_extent(view). The launch
+- * grid is the iteration shape for @p view (Standard / Internal / Boundary; see
+- * @c Span::iter_extent), so halo layers are never iterated.
++ * @p fn(span, idx) for threads inside the box @c span.window_extent(). The cell handed to @p fn is
++ * @c window_origin() + (ix, iy, iz), i.e. buffer-relative, so halo layers are never iterated. Use
++ * @c span.global_location(idx) if you need the grid-global coordinates.
+  *
+- * The @p idx handed to @p fn is buffer-relative: x and y are passed through verbatim, while
+- * z has been shifted by @c Span::set_and_validate so that it points at the correct cell in
+- * the buffer-local SoA layout for @p view. Use @c span.global_location(idx) if you need the
+- * grid-global coordinates.
++ * The kernel is @b not templated on @ref DataView. A view is realised on the host as one (Standard,
++ * Internal) or several (Boundary) @ref ViewWindow boxes, and the launcher stamps each box into the
++ * span with @c Span::with_window before every launch (see @c launch_dense_grid). Running Internal
++ * then Boundary (in either order) covers exactly the owned cells of a single Standard launch.
+  *
+- * Running Internal then Boundary (in either order) covers exactly the same set of owned
+- * cells as a single Standard launch — the three iteration domains partition the slab.
++ * @par Why the window lives in the span, not in a separate kernel argument
++ * Measured on sm_89 with the D3Q19-BGK fast op (nvcc 13.5): reading origin/extent from the span
++ * copy gives 48 regs / ~944 SASS instructions; passing the same six numbers as an extra
++ * struct/scalar argument gives 64 regs / ~1128 -- ptxas then no longer folds the origin into the
++ * uniform-datapath base offset. Keep it this way unless you re-measure.
+  *
+  * @note We deliberately do @b not annotate this kernel with @c __launch_bounds__ . The launch
+  * block is warp-aligned and capped at 512 threads (@c dense_make_kernel_block), and a measured
+  * A100 sweep of LBM D3Q19 (the register-heaviest dense consumer) showed a @c __launch_bounds__(512)
+- * cap to be neutral-to-slightly-negative across N=128..384 — the pull-stencil kernels are HBM-
++ * cap to be neutral-to-slightly-negative across N=128..384 -- the pull-stencil kernels are HBM-
+  * bandwidth bound (already near the roofline), so there is no occupancy headroom for the hint to
+  * recover. Left off to avoid constraining ptxas for no gain; revisit only for a compute-bound
+  * dense consumer.
+@@ -67,7 +70,7 @@ concept dense_distributed_kernel_fn =
+  *              @c if constexpr -specialise the slab path (pass the span into user lambdas as
+  *              @c auto ).
+  */
+-template <::carbon::DataView View, StorageKind Kind, typename F>
++template <StorageKind Kind, typename F>
+ requires dense_kernel_fn_for<F, TypedSpan<Kind>> __global__ void
+ dense_grid_kernel(TypedSpan<Kind> span,
+                   F fn) {
+@@ -75,11 +78,12 @@ dense_grid_kernel(TypedSpan<Kind> span,
+   const int64_t iy = static_cast<int64_t>(blockIdx.y * blockDim.y + threadIdx.y);
+   const int64_t iz = static_cast<int64_t>(blockIdx.z * blockDim.z + threadIdx.z);
+   const TypedSpan<Kind> local{span};
+-  const ValidatedIdx r = local.template set_and_validate<View>(ix, iy, iz);
+-  if (!r.valid) {
++  const int64_3d e = local.window_extent();
++  const int64_3d o = local.window_origin();
++  if (ix >= e.x || iy >= e.y || iz >= e.z) {
+     return;
+   }
+-  fn(local, r.idx);
++  fn(local, Idx(o.x + ix, o.y + iy, o.z + iz));
+ }
+ 
+ #endif
+diff --git a/include/carbon/detail/backend/cudalike/dense_distributed_launch.h b/include/carbon/detail/backend/cudalike/dense_distributed_launch.h
+index 69e7f283..945924fa 100644
+--- a/include/carbon/detail/backend/cudalike/dense_distributed_launch.h
++++ b/include/carbon/detail/backend/cudalike/dense_distributed_launch.h
+@@ -29,6 +29,7 @@
+ #include <carbon/detail/backend/cuda_like.h>
+ 
+ #include <cstddef>
++#include <cstdint>
+ #include <stdexcept>
+ 
+ namespace carbon {
+@@ -66,24 +67,40 @@ inline constexpr bool dense_launch_requires_cudacc_ = false;
+  * @return @c gpu_error_t result of @c gpu_runtime_launch_kernel — non-success values are surfaced
+  *         to the user through @c DeviceKernelImpl's error path.
+  */
+-template <::carbon::DataView View, typename F>
++/** Blocks needed to cover @p extent with @p block, per axis (0 on an empty axis). */
++[[nodiscard]] inline auto
++window_grid_shape(const int64_3d& extent, LaunchShape block) noexcept -> LaunchShape {
++  auto ceil_div = [](int64_t n, std::uint32_t d) -> std::uint32_t {
++    return n <= 0 ? 0U : static_cast<std::uint32_t>((n + static_cast<int64_t>(d) - 1) / d);
++  };
++  return LaunchShape{ceil_div(extent.x, block.x), ceil_div(extent.y, block.y),
++                     ceil_div(extent.z, block.z)};
++}
++
++/**
++ * @brief Launch @c dense_grid_kernel once, over the window already stamped into @p span.
++ *
++ * The only per-launch dispatch left is the storage kind (Slab / Pencil / Brick); the
++ * @ref DataView is gone from the kernel's template signature.
++ */
++template <typename F>
+ requires dense_distributed_kernel_fn<F> [[nodiscard]] inline auto
+-launch_dense_grid_view(const ::carbon::detail::Gpu& gpu,
+-                       const Span& span,
+-                       dim3 grid_shape,
+-                       dim3 block_shape,
+-                       size_t shared_mem,
+-                       gpu_stream_t stream,
+-                       F fn) -> gpu_error_t {
++launch_dense_grid_window(const ::carbon::detail::Gpu& gpu,
++                         const Span& span,
++                         dim3 grid_shape,
++                         dim3 block_shape,
++                         size_t shared_mem,
++                         gpu_stream_t stream,
++                         F fn) -> gpu_error_t {
+   switch (span.storage_kind()) {
+     case StorageKind::Slab:
+-      return gpu.template typed_launch<&dense_grid_kernel<View, StorageKind::Slab, F>>(
++      return gpu.template typed_launch<&dense_grid_kernel<StorageKind::Slab, F>>(
+           grid_shape, block_shape, shared_mem, stream, TypedSpan<StorageKind::Slab>{span}, fn);
+     case StorageKind::Pencil:
+-      return gpu.template typed_launch<&dense_grid_kernel<View, StorageKind::Pencil, F>>(
++      return gpu.template typed_launch<&dense_grid_kernel<StorageKind::Pencil, F>>(
+           grid_shape, block_shape, shared_mem, stream, TypedSpan<StorageKind::Pencil>{span}, fn);
+     case StorageKind::Brick:
+-      return gpu.template typed_launch<&dense_grid_kernel<View, StorageKind::Brick, F>>(
++      return gpu.template typed_launch<&dense_grid_kernel<StorageKind::Brick, F>>(
+           grid_shape, block_shape, shared_mem, stream, TypedSpan<StorageKind::Brick>{span}, fn);
+   }
+   return gpu_error_not_supported;
+@@ -114,20 +131,22 @@ launch_dense_grid(const ::carbon::DenseDistributed& grid,
+   }
+   const ::carbon::detail::Gpu& gpu = grid.system().gpu_group().devices()[relative_gpu_id];
+   const Span span = grid.spans()[relative_gpu_id];
+-  const dim3 dim_grid = to_dim3(grid_shape);
+   const dim3 dim_block = to_dim3(block_shape);
+-  switch (view) {
+-    case ::carbon::DataView::Standard:
+-      return launch_dense_grid_view<::carbon::DataView::Standard>(
+-          gpu, span, dim_grid, dim_block, shared_mem, stream, fn);
+-    case ::carbon::DataView::Internal:
+-      return launch_dense_grid_view<::carbon::DataView::Internal>(
+-          gpu, span, dim_grid, dim_block, shared_mem, stream, fn);
+-    case ::carbon::DataView::Boundary:
+-      return launch_dense_grid_view<::carbon::DataView::Boundary>(
+-          gpu, span, dim_grid, dim_block, shared_mem, stream, fn);
++
++  // One launch per non-empty window: Standard and Internal are a single box (same launch shape as
++  // the precomputed @p grid_shape); Boundary is up to six boxes (two for a slab). The per-window
++  // shape is derived from the box itself, so @p grid_shape is only used for the early-out above.
++  const ViewWindowSet windows = span.view_windows(view);
++  for (int i = 0; i < windows.count; ++i) {
++    const ViewWindow& w = windows.windows[i];
++    const dim3 dim_grid = to_dim3(window_grid_shape(w.extent, block_shape));
++    const gpu_error_t err = launch_dense_grid_window<F>(gpu, span.with_window(w), dim_grid,
++                                                        dim_block, shared_mem, stream, fn);
++    if (err != gpu_success) {
++      return err;
++    }
+   }
+-  return gpu_error_not_supported;
++  return gpu_success;
+ }
+ 
+ #else
+diff --git a/include/carbon/detail/dense_distributed/span.h b/include/carbon/detail/dense_distributed/span.h
+index ee54d608..921fe8d9 100644
+--- a/include/carbon/detail/dense_distributed/span.h
++++ b/include/carbon/detail/dense_distributed/span.h
+@@ -31,6 +31,52 @@ using ValidatedIdx = ::carbon::detail::Validated<Idx>;
+ /** Compile-time storage-map selector for device-kernel specialisation. */
+ enum class StorageKind : uint8_t { Slab = 0, Pencil = 1, Brick = 2 };
+ 
++/**
++ * Box of owned cells, in @b buffer-relative coordinates, that one kernel launch iterates over.
++ *
++ * A @ref DataView is realised on the host as one (Standard, Internal) or several (Boundary)
++ * windows; the kernel itself never sees the view. @c origin is the buffer coordinate of the
++ * box's first cell and @c extent its size; an axis with a non-positive extent makes the box empty.
++ */
++struct ViewWindow {
++  int64_3d origin{};
++  int64_3d extent{};
++
++  [[nodiscard]] CARBON_HD constexpr auto
++  empty() const noexcept -> bool {
++    return extent.x <= 0 || extent.y <= 0 || extent.z <= 0;
++  }
++
++  [[nodiscard]] CARBON_HD constexpr auto
++  volume() const noexcept -> int64_t {
++    return empty() ? 0 : extent.x * extent.y * extent.z;
++  }
++};
++
++/** Up to six non-empty, pairwise-disjoint @ref ViewWindow boxes (the Boundary shell needs six). */
++struct ViewWindowSet {
++  static constexpr int kMaxWindows = 6;
++  ViewWindow windows[kMaxWindows]{};
++  int count{0};
++
++  /** Append @p w unless it is empty. */
++  CARBON_HD constexpr void
++  push(const ViewWindow& w) noexcept {
++    if (!w.empty() && count < kMaxWindows) {
++      windows[count++] = w;
++    }
++  }
++
++  [[nodiscard]] CARBON_HD constexpr auto
++  total_volume() const noexcept -> int64_t {
++    int64_t v = 0;
++    for (int i = 0; i < count; ++i) {
++      v += windows[i].volume();
++    }
++    return v;
++  }
++};
++
+ /**
+  * The Boundary shell as six disjoint boxes over the owned extent. Per axis the low / high band
+  * thickness is clamped so the two never overlap (a chunk thinner than @c 2 * halo is shell
+@@ -82,6 +128,12 @@ class Span {
+   float32_3d origin_{};
+   float spacing_{1.0F};
+   StorageKind kind_{StorageKind::Brick};   
++  // Box this span instance iterates over. Defaults to the Standard window (all owned cells); the
++  // launcher swaps it per launch via with_window(). Carried *in the span* (not as a separate kernel
++  // argument) because that is the encoding ptxas turns into the leanest address math -- see
++  // dense_grid_kernel.
++  int64_3d window_origin_{};
++  int64_3d window_extent_{};
+ 
+ public:
+   CARBON_HD constexpr Span() noexcept = default;
+@@ -112,7 +164,10 @@ public:
+         legacy_slab_(legacy_slab),
+         origin_(origin),
+         spacing_(spacing),
+-        kind_(compute_kind_(haloed_extent, global_extent, offset, halo))
++        kind_(compute_kind_(haloed_extent, global_extent, offset, halo)),
++        window_origin_(halo),
++        window_extent_(int64_3d{haloed_extent.x - 2 * halo.x, haloed_extent.y - 2 * halo.y,
++                                haloed_extent.z - 2 * halo.z})
+         {}
+ 
+   /**
+@@ -325,6 +380,87 @@ public:
+     return halo_.z;
+   }
+ 
++  /** Buffer-relative first cell of the box this span iterates over (see @ref with_window). */
++  [[nodiscard]] CARBON_HD constexpr auto
++  window_origin() const noexcept -> int64_3d {
++    return window_origin_;
++  }
++
++  /** Per-axis size of the box this span iterates over (see @ref with_window). */
++  [[nodiscard]] CARBON_HD constexpr auto
++  window_extent() const noexcept -> int64_3d {
++    return window_extent_;
++  }
++
++  /** Copy of this span that iterates over @p w instead. Everything else is unchanged. */
++  [[nodiscard]] CARBON_HD constexpr auto
++  with_window(const ViewWindow& w) const noexcept -> Span {
++    Span s{*this};
++    s.window_origin_ = w.origin;
++    s.window_extent_ = w.extent;
++    return s;
++  }
++
++  /** All owned cells: origin @c halo(), extent @c logic_extent(). */
++  [[nodiscard]] CARBON_HD constexpr auto
++  standard_window() const noexcept -> ViewWindow {
++    return ViewWindow{halo_, logic_extent()};
++  }
++
++  /** Owned cells at least @c halo() away from every owned face (empty if the chunk is too thin). */
++  [[nodiscard]] CARBON_HD constexpr auto
++  internal_window() const noexcept -> ViewWindow {
++    const int64_3d n = logic_extent();
++    const int64_t ex = n.x - 2 * halo_.x;
++    const int64_t ey = n.y - 2 * halo_.y;
++    const int64_t ez = n.z - 2 * halo_.z;
++    return ViewWindow{int64_3d{2 * halo_.x, 2 * halo_.y, 2 * halo_.z},
++                      int64_3d{ex > 0 ? ex : 0, ey > 0 ? ey : 0, ez > 0 ? ez : 0}};
++  }
++
++  /**
++   * Owned cells within @c halo() of an owned face, as up to six disjoint boxes (empty ones
++   * omitted). Same partition as the compact shell decoded by @ref set_and_validate: Z-low, Z-high
++   * (full XY); Y-low, Y-high (full X, middle Z); X-low, X-high (middle Y, middle Z). A slab
++   * (halo.x == halo.y == 0) yields just the two Z boxes.
++   */
++  [[nodiscard]] CARBON_HD constexpr auto
++  boundary_windows() const noexcept -> ViewWindowSet {
++    const int64_3d n = logic_extent();
++    const ShellBands b = make_shell_bands_(haloed_extent_, halo_);
++    const int64_t mz = n.z - b.lo.z - b.hi.z;
++    const int64_t my = n.y - b.lo.y - b.hi.y;
++    ViewWindowSet set;
++    set.push(ViewWindow{int64_3d{halo_.x, halo_.y, halo_.z}, int64_3d{n.x, n.y, b.lo.z}});
++    set.push(ViewWindow{int64_3d{halo_.x, halo_.y, halo_.z + n.z - b.hi.z},
++                        int64_3d{n.x, n.y, b.hi.z}});
++    set.push(ViewWindow{int64_3d{halo_.x, halo_.y, halo_.z + b.lo.z}, int64_3d{n.x, b.lo.y, mz}});
++    set.push(ViewWindow{int64_3d{halo_.x, halo_.y + n.y - b.hi.y, halo_.z + b.lo.z},
++                        int64_3d{n.x, b.hi.y, mz}});
++    set.push(ViewWindow{int64_3d{halo_.x, halo_.y + b.lo.y, halo_.z + b.lo.z},
++                        int64_3d{b.lo.x, my, mz}});
++    set.push(ViewWindow{int64_3d{halo_.x + n.x - b.hi.x, halo_.y + b.lo.y, halo_.z + b.lo.z},
++                        int64_3d{b.hi.x, my, mz}});
++    return set;
++  }
++
++  /** The window(s) that realise @p view on this span. */
++  [[nodiscard]] CARBON_HD constexpr auto
++  view_windows(::carbon::DataView view) const noexcept -> ViewWindowSet {
++    ViewWindowSet set;
++    switch (view) {
++      case ::carbon::DataView::Standard:
++        set.push(standard_window());
++        return set;
++      case ::carbon::DataView::Internal:
++        set.push(internal_window());
++        return set;
++      case ::carbon::DataView::Boundary:
++        return boundary_windows();
++    }
++    return set;
++  }
++
+   /** Boundary semantics this span was built with (propagated from the owning @c DenseDistributed). */
+   [[nodiscard]] CARBON_HD constexpr auto
+   boundary_mode() const noexcept -> BoundaryModeDistributed {
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index a73c163d..2fd47112 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -144,6 +144,7 @@ carbon_add_unit_test(halo_coalesce)
+ # Span views and neighbour resolution (open + periodic), and the packed X->Y->Z halo exchange on an
+ # emulated multi-rank world. No GPU and no MPI, so it stays on the cpu lane.
+ carbon_add_unit_test(dense_distributed_host)
++carbon_add_unit_test(dense_distributed_windows)
+ # DenseDisgDistributed (Phase 1, slab only): layout helpers and Span parity with DenseDisg run on
+ # the CPU; the grid-level DenseDisg parity (spans + bit-identical fill_owned_host) runs when a
+ # device is visible, so it shares the GPU lock.
+diff --git a/tests/test_dense_distributed_windows.cpp b/tests/test_dense_distributed_windows.cpp
+new file mode 100644
+index 00000000..daa4520b
+--- /dev/null
++++ b/tests/test_dense_distributed_windows.cpp
+@@ -0,0 +1,217 @@
++// Host-only verification of the DataView -> ViewWindow translation of DenseDistributed's Span.
++// No GPU, no MPI.
++//
++// The CUDA/HIP compute kernel no longer takes a DataView template parameter: the launcher asks
++// the Span for the box(es) of a view (Span::view_windows), stamps each into the span
++// (Span::with_window) and the kernel iterates window_origin() + (ix, iy, iz) over window_extent().
++// This test pins that translation to the legacy path it replaces:
++//
++//  * for every view the union of the windows is exactly the set of buffer cells that
++//    iter_extent(view) + set_and_validate(view, ...) produce, and the windows are pairwise
++//    disjoint (every cell visited exactly once),
++//  * Internal + Boundary tile Standard, Standard is the span's default window,
++//  * a slab (halo.x == halo.y == 0) yields at most two Boundary windows, both along Z,
++//  * with_window changes the window and nothing else.
++//
++// What it does NOT cover: real kernel launches (see the dense_distributed_dist test).
++
++#include <carbon/boundary_mode_distributed.h>
++#include <carbon/data_view.h>
++#include <carbon/detail/dense_distributed/span.h>
++
++#include <cstdint>
++#include <cstdio>
++#include <cstdlib>
++#include <string>
++#include <vector>
++
++namespace {
++
++using carbon::BoundaryModeDistributed;
++using carbon::DataView;
++using carbon::int64_3d;
++namespace dd = carbon::detail::dense_distributed;
++
++std::string g_ctx;
++
++#define CHECK(cond)                                                                       \
++  do {                                                                                    \
++    if (!(cond)) {                                                                        \
++      std::fprintf(stderr, "CHECK failed: %s  (%s:%d)\n  context: %s\n", #cond, __FILE__, \
++                   __LINE__, g_ctx.c_str());                                              \
++      std::exit(1);                                                                       \
++    }                                                                                     \
++  } while (0)
++
++auto
++eq3(const int64_3d& a, const int64_3d& b) -> bool {
++  return a.x == b.x && a.y == b.y && a.z == b.z;
++}
++
++auto
++describe(const int64_3d& owned, const int64_3d& halo, bool legacy) -> std::string {
++  char buf[160];
++  std::snprintf(buf, sizeof(buf), "owned=(%lld,%lld,%lld) halo=(%lld,%lld,%lld) legacy_slab=%d",
++                static_cast<long long>(owned.x), static_cast<long long>(owned.y),
++                static_cast<long long>(owned.z), static_cast<long long>(halo.x),
++                static_cast<long long>(halo.y), static_cast<long long>(halo.z), legacy ? 1 : 0);
++  return buf;
++}
++
++struct Visits {
++  int64_3d haloed;
++  std::vector<int> count;
++
++  explicit Visits(const int64_3d& h)
++      : haloed(h),
++        count(static_cast<size_t>(h.x * h.y * h.z), 0) {}
++
++  auto
++  at(int64_t x, int64_t y, int64_t z) -> int& {
++    CHECK(x >= 0 && x < haloed.x && y >= 0 && y < haloed.y && z >= 0 && z < haloed.z);
++    return count[static_cast<size_t>((z * haloed.y + y) * haloed.x + x)];
++  }
++};
++
++// Buffer cells visited by the legacy path: every valid thread of iter_extent(view).
++auto
++legacy_cells(const dd::Span& span, DataView view) -> Visits {
++  Visits v(span.haloed_extent());
++  const int64_3d e = span.iter_extent(view);
++  for (int64_t iz = 0; iz < e.z; ++iz) {
++    for (int64_t iy = 0; iy < e.y; ++iy) {
++      for (int64_t ix = 0; ix < e.x; ++ix) {
++        const auto r = span.set_and_validate(view, ix, iy, iz);
++        if (r.valid) {
++          v.at(r.idx.cell().x, r.idx.cell().y, r.idx.cell().z) += 1;
++        }
++      }
++    }
++  }
++  return v;
++}
++
++// Buffer cells visited by the new path: window_origin() + (ix, iy, iz) over window_extent(),
++// exactly what dense_grid_kernel does, for every window of the view.
++auto
++window_cells(const dd::Span& span, DataView view) -> Visits {
++  Visits v(span.haloed_extent());
++  const dd::ViewWindowSet set = span.view_windows(view);
++  CHECK(set.count >= 0 && set.count <= dd::ViewWindowSet::kMaxWindows);
++  int64_t volume = 0;
++  for (int i = 0; i < set.count; ++i) {
++    const dd::ViewWindow& w = set.windows[i];
++    CHECK(!w.empty());  // empty boxes must have been dropped
++    volume += w.volume();
++    const dd::Span s = span.with_window(w);
++    const int64_3d e = s.window_extent();
++    const int64_3d o = s.window_origin();
++    for (int64_t iz = 0; iz < e.z; ++iz) {
++      for (int64_t iy = 0; iy < e.y; ++iy) {
++        for (int64_t ix = 0; ix < e.x; ++ix) {
++          v.at(o.x + ix, o.y + iy, o.z + iz) += 1;
++        }
++      }
++    }
++  }
++  CHECK(volume == set.total_volume());
++  return v;
++}
++
++void
++check_span(const int64_3d& owned, const int64_3d& halo, bool legacy_slab) {
++  g_ctx = describe(owned, halo, legacy_slab);
++  const int64_3d haloed{owned.x + 2 * halo.x, owned.y + 2 * halo.y, owned.z + 2 * halo.z};
++  const int64_3d global{owned.x * 2, owned.y * 2, owned.z * 2};
++  const dd::Span span(haloed, global, haloed.x * haloed.y, int64_3d{0, 0, 0}, halo,
++                      BoundaryModeDistributed::Open, legacy_slab);
++
++  // Default window = Standard window = all owned cells.
++  CHECK(eq3(span.window_origin(), halo));
++  CHECK(eq3(span.window_extent(), span.logic_extent()));
++  CHECK(eq3(span.standard_window().origin, halo));
++  CHECK(eq3(span.standard_window().extent, span.logic_extent()));
++
++  // with_window changes only the window.
++  {
++    const dd::ViewWindow w{int64_3d{1, 2, 3}, int64_3d{4, 5, 6}};
++    const dd::Span t = span.with_window(w);
++    CHECK(eq3(t.window_origin(), w.origin) && eq3(t.window_extent(), w.extent));
++    CHECK(eq3(t.haloed_extent(), span.haloed_extent()) && eq3(t.halo(), span.halo()));
++    CHECK(t.xy_slab_elements() == span.xy_slab_elements() && t.y_stride() == span.y_stride());
++    CHECK(t.linear_storage_elements() == span.linear_storage_elements() &&
++          t.lead_pad() == span.lead_pad());
++    CHECK(t.storage_kind() == span.storage_kind());
++  }
++
++  // A legacy Z slab thinner than 2 * halo.z has overlapping Boundary bands by construction (the
++  // old path visits cells twice); that degenerate shape is skipped for Boundary, as in
++  // test_dense_distributed_host.
++  const bool degenerate = legacy_slab && owned.z < 2 * halo.z;
++
++  for (const DataView view : {DataView::Standard, DataView::Internal, DataView::Boundary}) {
++    if (view == DataView::Boundary && degenerate) {
++      continue;
++    }
++    Visits legacy = legacy_cells(span, view);
++    Visits fresh = window_cells(span, view);
++    for (size_t i = 0; i < legacy.count.size(); ++i) {
++      CHECK(fresh.count[i] == legacy.count[i]);  // same cells ...
++      CHECK(fresh.count[i] <= 1);                // ... each visited at most once
++    }
++  }
++
++  // Internal + Boundary tile Standard.
++  if (!degenerate) {
++    const int64_t total = span.view_windows(DataView::Internal).total_volume() +
++                          span.view_windows(DataView::Boundary).total_volume();
++    CHECK(total == span.view_windows(DataView::Standard).total_volume());
++  }
++
++  // Slab: halo only along Z -> Boundary is the two Z boxes and nothing else.
++  if (halo.x == 0 && halo.y == 0) {
++    const dd::ViewWindowSet b = span.boundary_windows();
++    CHECK(b.count <= 2);
++    for (int i = 0; i < b.count; ++i) {
++      CHECK(b.windows[i].extent.x == owned.x && b.windows[i].extent.y == owned.y);
++      CHECK(b.windows[i].origin.x == halo.x && b.windows[i].origin.y == halo.y);
++    }
++  }
++}
++
++}  // namespace
++
++int
++main() {
++  const int64_3d halos[] = {
++      {0, 0, 0},  // no stencil
++      {0, 0, 1},  // slab, 1-deep halo
++      {0, 0, 2},  // slab, 2-deep halo
++      {0, 1, 1},  // pencil
++      {1, 0, 1},  // pencil along the other axis
++      {1, 1, 1},  // brick
++      {2, 1, 2},  // anisotropic brick
++      {2, 2, 2},  // wide brick
++  };
++  // Includes chunks thinner than 2 * halo on some / all axes and a 1-cell-thick chunk.
++  const int64_t sizes[] = {1, 2, 3, 4, 5, 8};
++  int64_t spans_checked = 0;
++  for (const int64_3d& halo : halos) {
++    for (const int64_t nx : sizes) {
++      for (const int64_t ny : sizes) {
++        for (const int64_t nz : sizes) {
++          for (const bool legacy : {false, true}) {
++            // `legacy_slab` is only meaningful for a Z slab.
++            if (legacy && !(halo.x == 0 && halo.y == 0)) {
++              continue;
++            }
++            check_span(int64_3d{nx, ny, nz}, halo, legacy);
++            ++spans_checked;
++          }
++        }
++      }
++    }
++  }
++  std::printf("dense_distributed_windows: OK (%lld spans)\n", static_cast<long long>(spans_checked));
++  return 0;
++}

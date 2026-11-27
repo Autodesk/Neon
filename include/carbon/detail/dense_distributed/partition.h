@@ -218,8 +218,9 @@ public:
    * Callable from host and device. @c CARBON_HD + @c constexpr so the compiler can inline
    * neighbour reads inside a stencil kernel without indirection.
    */
+  template <typename SpanT>
   [[nodiscard]] CARBON_HD constexpr auto
-  neighbour(const Span& span,
+  neighbour(const SpanT& span,
             const Idx& idx,
             int8_3d offset,
             int component_id) const noexcept -> NeighbourValue<T> {

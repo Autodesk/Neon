@@ -1,0 +1,25 @@
+# Comparison sweep: DenseDistributed vs DenseDisgDistributed.
+# Same matrix as lbm-dist-sweep, both grids, hp-halo on (the fair OCC baseline).
+configs: [q19:bgk]
+grids: [dense_distributed, disg_distributed]
+sizes: [256, 384, 512]
+decompositions: [slab, pencil, brick]
+gpus_slab: [2, 4, 8]
+gpus_pencil: [4, 8]
+gpus_brick: [8]
+transports: [mpi]
+hp_halo: ["on"]
+overlap: standard
+warmup: 400
+iters_per_rep: 400
+reps: 5
+sm_arch: "80"
+image: carbon-cuda-nccl-pinned:local
+build_dir: build-dist
+prefix: lbm-disg-vs-dense
+skip_build: true
+force: true
+run_timeout: 1800
+reference_dir: benchmarks/lbm_lid_driven_cavity/data/lbm-dgx-sweep/json
+reference_prefix: lbm-dgx-sweep
+reference_label: dense-intra

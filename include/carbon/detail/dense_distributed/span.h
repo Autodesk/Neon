@@ -8,6 +8,8 @@
 
 #include <carbon/process_grid.h>
 
+#include <stdint.h>
+
 namespace carbon::detail::dense_distributed {
 
 /**
@@ -26,6 +28,69 @@ using Idx = ::carbon::detail::dense::Idx;
  */
 using ValidatedIdx = ::carbon::detail::Validated<Idx>;
 
+/** Compile-time storage-map selector for device-kernel specialisation. */
+enum class StorageKind : uint8_t { Slab = 0, Pencil = 1, Brick = 2 };
+
+/**
+ * Box of owned cells, in @b buffer-relative coordinates, that one kernel launch iterates over.
+ *
+ * A @ref DataView is realised on the host as one (Standard, Internal) or several (Boundary)
+ * windows; the kernel itself never sees the view. @c origin is the buffer coordinate of the
+ * box's first cell and @c extent its size; an axis with a non-positive extent makes the box empty.
+ */
+struct ViewWindow {
+  int64_3d origin{};
+  int64_3d extent{};
+
+  [[nodiscard]] CARBON_HD constexpr auto
+  empty() const noexcept -> bool {
+    return extent.x <= 0 || extent.y <= 0 || extent.z <= 0;
+  }
+
+  [[nodiscard]] CARBON_HD constexpr auto
+  volume() const noexcept -> int64_t {
+    return empty() ? 0 : extent.x * extent.y * extent.z;
+  }
+};
+
+/** Up to six non-empty, pairwise-disjoint @ref ViewWindow boxes (the Boundary shell needs six). */
+struct ViewWindowSet {
+  static constexpr int kMaxWindows = 6;
+  ViewWindow windows[kMaxWindows]{};
+  int count{0};
+
+  /** Append @p w unless it is empty. */
+  CARBON_HD constexpr void
+  push(const ViewWindow& w) noexcept {
+    if (!w.empty() && count < kMaxWindows) {
+      windows[count++] = w;
+    }
+  }
+
+  [[nodiscard]] CARBON_HD constexpr auto
+  total_volume() const noexcept -> int64_t {
+    int64_t v = 0;
+    for (int i = 0; i < count; ++i) {
+      v += windows[i].volume();
+    }
+    return v;
+  }
+};
+
+/**
+ * The Boundary shell as six disjoint boxes over the owned extent. Per axis the low / high band
+ * thickness is clamped so the two never overlap (a chunk thinner than @c 2 * halo is shell
+ * entirely and @c Internal is empty). Box order: Z-low, Z-high (full XY); Y-low, Y-high
+ * (full X, middle Z); X-low, X-high (middle Y, middle Z).
+ */
+struct ShellBands {
+  int64_3d lo{};
+  int64_3d hi{};
+  int64_t vol[6]{};
+  int64_t prefix[7]{};
+  int64_t total{0};
+};
+
 /**
  * Layout of one GPU's dense subvolume expressed in @b storage (haloed) terms: per-axis haloed
  * extent, elements per XY plane (pitch in elements), global coordinate where the chunk's storage
@@ -40,7 +105,8 @@ using ValidatedIdx = ::carbon::detail::Validated<Idx>;
  *   cells follow, and the upper halo the remaining @c halo() layers.
  * - @c xy_slab_elements() is the number of T-sized elements between two adjacent z planes in
  *   the haloed buffer. It is at least @c haloed_extent().x * haloed_extent().y ; halos are
- *   included in the extent rather than encoded as pitch padding.
+ *   included in the extent. When @ref LayoutOptions::pad_rows is enabled it is
+ *   @c y_stride() * haloed_extent().y , with each row rounded up to the requested alignment.
  * - @c global_extent() is the full Cartesian grid extent shared by every chunk. It is needed to
  *   distinguish, in @c Partition::neighbour, an in-buffer halo cell that maps to a real global
  *   cell (interior chunk boundary) from one that lies outside the global domain (an open face).
@@ -52,12 +118,22 @@ class Span {
   int64_3d haloed_extent_{};
   int64_3d global_extent_{};
   int64_t xy_slab_elements_{};
+  int64_t y_stride_{};
+  int64_t component_stride_{};
+  int64_t lead_pad_{};
   int64_3d offset_{};
   int64_3d halo_{};
   BoundaryModeDistributed boundary_mode_{BoundaryModeDistributed::Open};
   bool legacy_slab_{false};
   float32_3d origin_{};
   float spacing_{1.0F};
+  StorageKind kind_{StorageKind::Brick};   
+  // Box this span instance iterates over. Defaults to the Standard window (all owned cells); the
+  // launcher swaps it per launch via with_window(). Carried *in the span* (not as a separate kernel
+  // argument) because that is the encoding ptxas turns into the leanest address math -- see
+  // dense_grid_kernel.
+  int64_3d window_origin_{};
+  int64_3d window_extent_{};
 
 public:
   CARBON_HD constexpr Span() noexcept = default;
@@ -70,16 +146,29 @@ public:
                            BoundaryModeDistributed boundary_mode = BoundaryModeDistributed::Open,
                            bool legacy_slab = false,
                            float32_3d origin = {},
-                           float spacing = 1.0F) noexcept
+                           float spacing = 1.0F,
+                           int64_t y_stride = 0,
+                           int64_t component_stride = 0,
+                           int64_t lead_pad = 0) noexcept
       : haloed_extent_(haloed_extent),
         global_extent_(global_extent),
         xy_slab_elements_(xy_slab_elements),
+        y_stride_(y_stride > 0 ? y_stride : haloed_extent.x),
+        component_stride_(component_stride > 0
+                              ? component_stride
+                              : lead_pad + haloed_extent.z * xy_slab_elements),
+        lead_pad_(lead_pad),
         offset_(offset),
         halo_(halo),
         boundary_mode_(boundary_mode),
         legacy_slab_(legacy_slab),
         origin_(origin),
-        spacing_(spacing) {}
+        spacing_(spacing),
+        kind_(compute_kind_(haloed_extent, global_extent, offset, halo)),
+        window_origin_(halo),
+        window_extent_(int64_3d{haloed_extent.x - 2 * halo.x, haloed_extent.y - 2 * halo.y,
+                                haloed_extent.z - 2 * halo.z})
+        {}
 
   /**
    * Construct a span over its @b storage (haloed) extent.
@@ -103,6 +192,13 @@ public:
    * @param origin            Physical-space origin of global cell @c (0,0,0)'s corner (same
    *                          convention as @c global_location on integer indices).
    * @param spacing           Isotropic cell spacing along every axis (must be finite and > 0).
+   * @param y_stride          Elements between adjacent y rows. Default 0 keeps the historical
+   *                          @c haloed_extent.x stride. DenseDistributed passes the padded value
+   *                          when @ref LayoutOptions::pad_rows is enabled.
+   * @param component_stride  Elements per component plane, including any lead pad and tail
+   *                          padding. Default 0 derives the historical
+   *                          @c haloed_extent.z * xy_slab_elements pitch.
+   * @param lead_pad          Elements before buffer @c x == 0 in each component plane. Default 0.
    */
   /** Z-only convenience overload: equivalent to full @c offset={0,0,z_offset} and
    *  @c halo={0,0,halo_z}. @p legacy_slab defaults to false; pass true for a legacy z-slab. */
@@ -114,7 +210,10 @@ public:
                            BoundaryModeDistributed boundary_mode = BoundaryModeDistributed::Open,
                            bool legacy_slab = false,
                            float32_3d origin = {},
-                           float spacing = 1.0F) noexcept
+                           float spacing = 1.0F,
+                           int64_t y_stride = 0,
+                           int64_t component_stride = 0,
+                           int64_t lead_pad = 0) noexcept
       : Span(haloed_extent,
              global_extent,
              xy_slab_elements,
@@ -127,7 +226,10 @@ public:
              boundary_mode,
              legacy_slab,
              origin,
-             spacing) {}
+             spacing,
+             y_stride,
+             component_stride,
+             lead_pad) {}
 
   /** Storage extent (includes halo layers on every axis where @ref halo() is non-zero). */
   [[nodiscard]] CARBON_HD constexpr auto
@@ -180,39 +282,62 @@ public:
    * (in any order) writes every owned cell exactly once — same coverage as a single
    * Standard launch.
    */
+  template <::carbon::DataView View>
   [[nodiscard]] CARBON_HD constexpr auto
-  iter_extent(::carbon::DataView view) const noexcept -> int64_3d {
+  iter_extent() const noexcept -> int64_3d {
     const int64_3d owned = logic_extent();
-    switch (view) {
-      case ::carbon::DataView::Standard:
-        return owned;
-
-      case ::carbon::DataView::Internal: {
-        const int64_t ix = owned.x - 2 * halo_.x;
-        const int64_t iy = owned.y - 2 * halo_.y;
-        const int64_t iz = owned.z - 2 * halo_.z;
-        return int64_3d{ix > 0 ? ix : 0, iy > 0 ? iy : 0, iz > 0 ? iz : 0};
+    if constexpr (View == ::carbon::DataView::Standard) {
+      return owned;
+    } else if constexpr (View == ::carbon::DataView::Internal) {
+      const int64_t ix = owned.x - 2 * halo_.x;
+      const int64_t iy = owned.y - 2 * halo_.y;
+      const int64_t iz = owned.z - 2 * halo_.z;
+      return int64_3d{ix > 0 ? ix : 0, iy > 0 ? iy : 0, iz > 0 ? iz : 0};
+    } else {
+      if (legacy_slab_ && halo_.x == 0 && halo_.y == 0) {
+        return int64_3d{owned.x, owned.y, halo_.z > 0 ? 2 * halo_.z : 0};
       }
-
-      case ::carbon::DataView::Boundary: {
-        if (legacy_slab_ && halo_.x == 0 && halo_.y == 0) {
-          return int64_3d{owned.x, owned.y, halo_.z > 0 ? 2 * halo_.z : 0};
-        }
-        const int64_t shell = shell_bands_().total;
-        if (shell == 0) {
-          return int64_3d{0, 0, 0};
-        }
-        const int64_t w = shell >= kShellRowWidth ? kShellRowWidth : shell;
-        return int64_3d{w, (shell + w - 1) / w, 1};
+      const int64_t shell = make_shell_bands_(haloed_extent_, halo_).total;
+      if (shell == 0) {
+        return int64_3d{0, 0, 0};
       }
+      const int64_t w = shell >= kShellRowWidth ? kShellRowWidth : shell;
+      return int64_3d{w, (shell + w - 1) / w, 1};
     }
-    return owned;
   }
 
-  /** Elements per XY plane (pitch in elements), same for halo and owned layers. */
+  [[nodiscard]] CARBON_HD constexpr auto
+  iter_extent(::carbon::DataView view) const noexcept -> int64_3d {
+    switch (view) {
+      case ::carbon::DataView::Standard:
+        return iter_extent<::carbon::DataView::Standard>();
+      case ::carbon::DataView::Internal:
+        return iter_extent<::carbon::DataView::Internal>();
+      case ::carbon::DataView::Boundary:
+        return iter_extent<::carbon::DataView::Boundary>();
+    }
+    return logic_extent();
+  }
+
+  /**
+   * Elements per XY plane (pitch in elements), same for halo and owned layers. With row padding
+   * enabled this is @c y_stride * haloed_extent().y rather than the minimum @c x * y.
+   */
   [[nodiscard]] CARBON_HD constexpr auto
   xy_slab_elements() const noexcept -> int64_t {
     return xy_slab_elements_;
+  }
+
+  /** Elements between adjacent y rows (at least @c haloed_extent().x). */
+  [[nodiscard]] CARBON_HD constexpr auto
+  y_stride() const noexcept -> int64_t {
+    return y_stride_;
+  }
+
+  /** Elements before buffer @c x == 0 in each component plane (zero when unpadded). */
+  [[nodiscard]] CARBON_HD constexpr auto
+  lead_pad() const noexcept -> int64_t {
+    return lead_pad_;
   }
 
   [[nodiscard]] CARBON_HD constexpr auto
@@ -255,10 +380,109 @@ public:
     return halo_.z;
   }
 
+  /** Buffer-relative first cell of the box this span iterates over (see @ref with_window). */
+  [[nodiscard]] CARBON_HD constexpr auto
+  window_origin() const noexcept -> int64_3d {
+    return window_origin_;
+  }
+
+  /** Per-axis size of the box this span iterates over (see @ref with_window). */
+  [[nodiscard]] CARBON_HD constexpr auto
+  window_extent() const noexcept -> int64_3d {
+    return window_extent_;
+  }
+
+  /** Copy of this span that iterates over @p w instead. Everything else is unchanged. */
+  [[nodiscard]] CARBON_HD constexpr auto
+  with_window(const ViewWindow& w) const noexcept -> Span {
+    Span s{*this};
+    s.window_origin_ = w.origin;
+    s.window_extent_ = w.extent;
+    return s;
+  }
+
+  /** All owned cells: origin @c halo(), extent @c logic_extent(). */
+  [[nodiscard]] CARBON_HD constexpr auto
+  standard_window() const noexcept -> ViewWindow {
+    return ViewWindow{halo_, logic_extent()};
+  }
+
+  /** Owned cells at least @c halo() away from every owned face (empty if the chunk is too thin). */
+  [[nodiscard]] CARBON_HD constexpr auto
+  internal_window() const noexcept -> ViewWindow {
+    const int64_3d n = logic_extent();
+    const int64_t ex = n.x - 2 * halo_.x;
+    const int64_t ey = n.y - 2 * halo_.y;
+    const int64_t ez = n.z - 2 * halo_.z;
+    return ViewWindow{int64_3d{2 * halo_.x, 2 * halo_.y, 2 * halo_.z},
+                      int64_3d{ex > 0 ? ex : 0, ey > 0 ? ey : 0, ez > 0 ? ez : 0}};
+  }
+
+  /**
+   * Owned cells within @c halo() of an owned face, as up to six disjoint boxes (empty ones
+   * omitted). Same partition as the compact shell decoded by @ref set_and_validate: Z-low, Z-high
+   * (full XY); Y-low, Y-high (full X, middle Z); X-low, X-high (middle Y, middle Z). A slab
+   * (halo.x == halo.y == 0) yields just the two Z boxes.
+   */
+  [[nodiscard]] CARBON_HD constexpr auto
+  boundary_windows() const noexcept -> ViewWindowSet {
+    const int64_3d n = logic_extent();
+    const ShellBands b = make_shell_bands_(haloed_extent_, halo_);
+    const int64_t mz = n.z - b.lo.z - b.hi.z;
+    const int64_t my = n.y - b.lo.y - b.hi.y;
+    ViewWindowSet set;
+    set.push(ViewWindow{int64_3d{halo_.x, halo_.y, halo_.z}, int64_3d{n.x, n.y, b.lo.z}});
+    set.push(ViewWindow{int64_3d{halo_.x, halo_.y, halo_.z + n.z - b.hi.z},
+                        int64_3d{n.x, n.y, b.hi.z}});
+    set.push(ViewWindow{int64_3d{halo_.x, halo_.y, halo_.z + b.lo.z}, int64_3d{n.x, b.lo.y, mz}});
+    set.push(ViewWindow{int64_3d{halo_.x, halo_.y + n.y - b.hi.y, halo_.z + b.lo.z},
+                        int64_3d{n.x, b.hi.y, mz}});
+    set.push(ViewWindow{int64_3d{halo_.x, halo_.y + b.lo.y, halo_.z + b.lo.z},
+                        int64_3d{b.lo.x, my, mz}});
+    set.push(ViewWindow{int64_3d{halo_.x + n.x - b.hi.x, halo_.y + b.lo.y, halo_.z + b.lo.z},
+                        int64_3d{b.hi.x, my, mz}});
+    return set;
+  }
+
+  /** The window(s) that realise @p view on this span. */
+  [[nodiscard]] CARBON_HD constexpr auto
+  view_windows(::carbon::DataView view) const noexcept -> ViewWindowSet {
+    ViewWindowSet set;
+    switch (view) {
+      case ::carbon::DataView::Standard:
+        set.push(standard_window());
+        return set;
+      case ::carbon::DataView::Internal:
+        set.push(internal_window());
+        return set;
+      case ::carbon::DataView::Boundary:
+        return boundary_windows();
+    }
+    return set;
+  }
+
   /** Boundary semantics this span was built with (propagated from the owning @c DenseDistributed). */
   [[nodiscard]] CARBON_HD constexpr auto
   boundary_mode() const noexcept -> BoundaryModeDistributed {
     return boundary_mode_;
+  }
+
+  /**
+   * Runtime storage/decomposition kind used to stamp a @ref TypedSpan at kernel entry.
+   *
+   * - @c Slab: no x/y halo and a chunk that spans the full global x/y domain with buffer x/y
+   *   origin zero. This is the legacy z-slab case, and it is exactly the invariant that lets
+   *   @ref neighbour_idx skip the per-neighbour x/y global-domain checks (buffer x/y coordinates
+   *   are then always inside the global domain).
+   * - @c Pencil: no x halo but a y halo.
+   * - @c Brick: an x halo (and therefore no Slab/Pencil shortcut).
+   *
+   * Spans that do not satisfy the Slab invariant (for example a translated, halo-free subvolume)
+   * deliberately report @c Brick, so the generic bounds path is used.
+   */
+  [[nodiscard]] CARBON_HD constexpr auto
+  storage_kind() const noexcept -> StorageKind {
+    return kind_;
   }
 
   /** Physical-space origin at global integer cell @c (0,0,0) (cell-corner convention). */
@@ -274,13 +498,13 @@ public:
   }
 
   /**
-   * Contiguous element count for this slab's storage: @c haloed_extent().z layers times
-   * @c xy_slab_elements() per layer. Matches the buffer sizing used by
-   * @c DenseDistributed::newField (lower halo + owned + upper halo).
+   * Contiguous element count for one component plane: the component stride, including any lead
+   * pad and tail padding. Matches the buffer sizing used by @c DenseDistributed::newField
+   * (lower halo + owned + upper halo, plus optional storage padding).
    */
   [[nodiscard]] CARBON_HD constexpr auto
   linear_storage_elements() const noexcept -> int64_t {
-    return haloed_extent_.z * xy_slab_elements_;
+    return component_stride_;
   }
 
   /**
@@ -331,7 +555,8 @@ public:
   /**
    * Element offset (in units of @c T) from the start of a partition buffer to the cell at @p idx
    * for component @p component_id, using this span's SoA dense layout:
-   * @c component_id * linear_storage_elements() + iz * xy_slab_elements() + iy * haloed_extent().x + ix.
+   * @c component_id * linear_storage_elements() + lead_pad() + iz * xy_slab_elements() +
+   * iy * y_stride() + ix.
    *
    * Matches Neon's @c dPartition::getPitch with its default pitch. No bounds checking.
    */
@@ -358,6 +583,12 @@ public:
    * @c (ix, iy, iz) is within @c iter_extent(view); kernels should early-out on a @c false
    * return.
    */
+  template <::carbon::DataView View>
+  [[nodiscard]] CARBON_HD constexpr auto
+  set_and_validate(int64_t ix,
+                   int64_t iy,
+                   int64_t iz) const noexcept -> ValidatedIdx;
+
   [[nodiscard]] CARBON_HD constexpr auto
   set_and_validate(::carbon::DataView view,
                    int64_t ix,
@@ -368,30 +599,19 @@ private:
   /** Row width of the 2-D Boundary launch box (two full 64-wide blocks per row). */
   static constexpr int64_t kShellRowWidth = 128;
 
-  /**
-   * The Boundary shell as six disjoint boxes over the owned extent. Per axis the low / high band
-   * thickness is clamped so the two never overlap (a chunk thinner than @c 2 * halo is shell
-   * entirely and @c Internal is empty). Box order: Z-low, Z-high (full XY); Y-low, Y-high
-   * (full X, middle Z); X-low, X-high (middle Y, middle Z).
-   */
-  struct ShellBands {
-    int64_3d lo{};
-    int64_3d hi{};
-    int64_t vol[6]{};
-    int64_t total{0};
-  };
-
-  [[nodiscard]] CARBON_HD constexpr auto
-  shell_bands_() const noexcept -> ShellBands {
-    const int64_3d n = logic_extent();
+  [[nodiscard]] static CARBON_HD constexpr auto
+  make_shell_bands_(int64_3d haloed_extent,
+                    int64_3d halo) noexcept -> ShellBands {
+    const int64_3d n{haloed_extent.x - 2 * halo.x, haloed_extent.y - 2 * halo.y,
+                     haloed_extent.z - 2 * halo.z};
     ShellBands b;
-    b.lo = int64_3d{halo_.x < n.x ? halo_.x : n.x, halo_.y < n.y ? halo_.y : n.y,
-                    halo_.z < n.z ? halo_.z : n.z};
+    b.lo = int64_3d{halo.x < n.x ? halo.x : n.x, halo.y < n.y ? halo.y : n.y,
+                    halo.z < n.z ? halo.z : n.z};
     const int64_t rx = n.x - b.lo.x;
     const int64_t ry = n.y - b.lo.y;
     const int64_t rz = n.z - b.lo.z;
-    b.hi = int64_3d{halo_.x < rx ? halo_.x : rx, halo_.y < ry ? halo_.y : ry,
-                    halo_.z < rz ? halo_.z : rz};
+    b.hi = int64_3d{halo.x < rx ? halo.x : rx, halo.y < ry ? halo.y : ry,
+                    halo.z < rz ? halo.z : rz};
     const int64_t mz = n.z - b.lo.z - b.hi.z;  // middle extents (>= 0 by the clamps)
     const int64_t my = n.y - b.lo.y - b.hi.y;
     b.vol[0] = n.x * n.y * b.lo.z;
@@ -400,9 +620,32 @@ private:
     b.vol[3] = n.x * b.hi.y * mz;
     b.vol[4] = b.lo.x * my * mz;
     b.vol[5] = b.hi.x * my * mz;
-    b.total = b.vol[0] + b.vol[1] + b.vol[2] + b.vol[3] + b.vol[4] + b.vol[5];
+    b.prefix[0] = 0;
+    for (int i = 0; i < 6; ++i) {
+      b.prefix[i + 1] = b.prefix[i] + b.vol[i];
+    }
+    b.total = b.prefix[6];
     return b;
   }
+
+  [[nodiscard]] static CARBON_HD constexpr auto
+  compute_kind_(int64_3d haloed_extent,
+                int64_3d global_extent,
+                int64_3d offset,
+                int64_3d halo) noexcept -> StorageKind {
+    if (halo.x != 0) {
+      return StorageKind::Brick;
+    }
+    if (halo.y != 0) {
+      return StorageKind::Pencil;
+    }
+    if (offset.x == 0 && offset.y == 0 && haloed_extent.x == global_extent.x &&
+        haloed_extent.y == global_extent.y) {
+      return StorageKind::Slab;
+    }
+    return StorageKind::Brick;
+  }
+
 
   /** Owned-local cell of linear shell index @p t in [0, bands.total); x varies fastest. */
   [[nodiscard]] CARBON_HD constexpr auto
@@ -410,10 +653,10 @@ private:
               int64_t t) const noexcept -> int64_3d {
     const int64_3d n = logic_extent();
     int box = 0;
-    while (box < 5 && t >= b.vol[box]) {
-      t -= b.vol[box];
+    while (box < 5 && t >= b.prefix[box + 1]) {
       ++box;
     }
+    t -= b.prefix[box];
     int64_t bx = 0;  // box origin
     int64_t by = 0;
     int64_t bz = 0;
@@ -476,8 +719,41 @@ Span::global_location(const Idx& idx) const noexcept -> int64_3d {
 Span::linear_offset(const Idx& idx,
                     int component_id) const noexcept -> int64_t {
   const int64_3d cell = idx.cell();
-  return static_cast<int64_t>(component_id) * linear_storage_elements() +
-         cell.z * xy_slab_elements_ + cell.y * haloed_extent_.x + cell.x;
+  return static_cast<int64_t>(component_id) * component_stride_ + lead_pad_ +
+         cell.z * xy_slab_elements_ + cell.y * y_stride_ + cell.x;
+}
+
+template <::carbon::DataView View>
+[[nodiscard]] CARBON_HD constexpr auto
+Span::set_and_validate(int64_t ix,
+                       int64_t iy,
+                       int64_t iz) const noexcept -> ValidatedIdx {
+  const int64_3d ext = iter_extent<View>();
+  if (ix < 0 || iy < 0 || iz < 0 || ix >= ext.x || iy >= ext.y || iz >= ext.z) {
+    return ValidatedIdx{Idx{}, false};
+  }
+
+  if constexpr (View == ::carbon::DataView::Standard) {
+    return ValidatedIdx{Idx(halo_.x + ix, halo_.y + iy, halo_.z + iz), true};
+  } else if constexpr (View == ::carbon::DataView::Internal) {
+    return ValidatedIdx{Idx(2 * halo_.x + ix, 2 * halo_.y + iy, 2 * halo_.z + iz), true};
+  } else {
+    if (legacy_slab_ && halo_.x == 0 && halo_.y == 0) {
+      const int64_t owned_z = logic_extent().z;
+      const int64_t bz = (iz < halo_.z) ? (halo_.z + iz) : (owned_z - halo_.z + iz);
+      return ValidatedIdx{Idx(ix, iy, bz), true};
+    }
+
+    // Compact shell: thread (ix, iy) is the linear shell index t (iz is 0 by the range check
+    // above); the padded tail of the last row is invalid.
+    const ShellBands bands = make_shell_bands_(haloed_extent_, halo_);
+    const int64_t t = iy * ext.x + ix;
+    if (t >= bands.total) {
+      return ValidatedIdx{Idx{}, false};
+    }
+    const int64_3d c = shell_cell_(bands, t);
+    return ValidatedIdx{Idx(halo_.x + c.x, halo_.y + c.y, halo_.z + c.z), true};
+  }
 }
 
 [[nodiscard]] CARBON_HD constexpr auto
@@ -485,35 +761,13 @@ Span::set_and_validate(::carbon::DataView view,
                        int64_t ix,
                        int64_t iy,
                        int64_t iz) const noexcept -> ValidatedIdx {
-  const int64_3d ext = iter_extent(view);
-  if (ix < 0 || iy < 0 || iz < 0 || ix >= ext.x || iy >= ext.y || iz >= ext.z) {
-    return ValidatedIdx{Idx{}, false};
-  }
-
   switch (view) {
     case ::carbon::DataView::Standard:
-      return ValidatedIdx{Idx(halo_.x + ix, halo_.y + iy, halo_.z + iz), true};
-
+      return set_and_validate<::carbon::DataView::Standard>(ix, iy, iz);
     case ::carbon::DataView::Internal:
-      return ValidatedIdx{Idx(2 * halo_.x + ix, 2 * halo_.y + iy, 2 * halo_.z + iz), true};
-
-    case ::carbon::DataView::Boundary: {
-      if (legacy_slab_ && halo_.x == 0 && halo_.y == 0) {
-        const int64_t owned_z = logic_extent().z;
-        const int64_t bz = (iz < halo_.z) ? (halo_.z + iz) : (owned_z - halo_.z + iz);
-        return ValidatedIdx{Idx(ix, iy, bz), true};
-      }
-
-      // Compact shell: thread (ix, iy) is the linear shell index t (iz is 0 by the range check
-      // above); the padded tail of the last row is invalid.
-      const ShellBands bands = shell_bands_();
-      const int64_t t = iy * ext.x + ix;
-      if (t >= bands.total) {
-        return ValidatedIdx{Idx{}, false};
-      }
-      const int64_3d c = shell_cell_(bands, t);
-      return ValidatedIdx{Idx(halo_.x + c.x, halo_.y + c.y, halo_.z + c.z), true};
-    }
+      return set_and_validate<::carbon::DataView::Internal>(ix, iy, iz);
+    case ::carbon::DataView::Boundary:
+      return set_and_validate<::carbon::DataView::Boundary>(ix, iy, iz);
   }
   return ValidatedIdx{Idx{}, false};
 }
@@ -554,8 +808,9 @@ struct NeighbourIdx {
  *   because the halo exchange has filled it with the wrapped data; the buffer-local index is
  *   accepted and @c valid = true is returned.
  */
+template <typename SpanT>
 [[nodiscard]] CARBON_HD constexpr auto
-neighbour_idx(const Span& span,
+neighbour_idx(const SpanT& span,
               const Idx& idx,
               ::carbon::int8_3d offset) noexcept -> NeighbourIdx {
   const int64_3d cell = idx.cell();
@@ -569,6 +824,22 @@ neighbour_idx(const Span& span,
   const int64_3d global_extent = span.global_extent();
   const int64_3d off = span.offset();
   const BoundaryModeDistributed mode = span.boundary_mode();
+
+  if constexpr (requires { SpanT::kind; }) {
+    if constexpr (SpanT::kind == StorageKind::Slab) {
+      const int64_t gz = bz + off.z;
+      if ((gz < 0 || gz >= global_extent.z) && !is_periodic(mode, Axis::Z)) {
+        return {};
+      }
+      return NeighbourIdx{Idx(bx, by, bz), true};
+    }
+  } else if (span.storage_kind() == StorageKind::Slab) {
+    const int64_t gz = bz + off.z;
+    if ((gz < 0 || gz >= global_extent.z) && !is_periodic(mode, Axis::Z)) {
+      return {};
+    }
+    return NeighbourIdx{Idx(bx, by, bz), true};
+  }
 
   const int64_t gx = bx + off.x;
   if ((gx < 0 || gx >= global_extent.x) && !is_periodic(mode, Axis::X)) {
@@ -587,5 +858,19 @@ neighbour_idx(const Span& span,
 
   return NeighbourIdx{Idx(bx, by, bz), true};
 }
+
+/**
+ * Device-launch wrapper that stamps @p Kind onto a @ref Span so @c Partition hot paths can
+ * @c if constexpr -specialise (the slab path matches @c Dense's z-only neighbour checks).
+ * Constructed from the runtime @ref Span at kernel entry; user lambdas should take the span as
+ * @c auto .
+ */
+template <StorageKind Kind>
+struct TypedSpan : Span {
+  static constexpr StorageKind kind = Kind;
+
+  CARBON_HD constexpr TypedSpan() noexcept = default;
+  CARBON_HD constexpr explicit TypedSpan(Span span) noexcept : Span(span) {}
+};
 
 }  // namespace carbon::detail::dense_distributed

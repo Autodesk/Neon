@@ -22,9 +22,18 @@ namespace carbon::detail::dense_distributed {
  * Same shape as the CUDA backend's concept so user lambdas authored against the public
  * @c DenseDistributed::make_kernel API satisfy both, no per-backend authoring needed.
  */
-template <typename F>
-concept dense_kernel_fn = requires(F fn, Span span, Idx idx) {
+template <typename F, typename SpanT>
+concept dense_kernel_fn_for = requires(F fn, SpanT span, Idx idx) {
   {fn(span, idx)}->std::same_as<void>;
 };
+
+template <typename F>
+concept dense_kernel_fn = dense_kernel_fn_for<F, Span>;
+
+template <typename F>
+concept dense_distributed_kernel_fn =
+    dense_kernel_fn_for<F, TypedSpan<StorageKind::Slab>> &&
+    dense_kernel_fn_for<F, TypedSpan<StorageKind::Pencil>> &&
+    dense_kernel_fn_for<F, TypedSpan<StorageKind::Brick>>;
 
 }  // namespace carbon::detail::dense_distributed
