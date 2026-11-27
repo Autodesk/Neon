@@ -18,9 +18,15 @@
  * subsumes both stages: the reduction object names the destination scalar directly and
  * the runtime allocates whatever per-work-group scratch it needs internally. The
  * @c reduce_kernel_impl.h SYCL branch therefore skips both allocations entirely.
+ *
+ * @par Windows, not DataView templates
+ * The view is translated to one or more @ref ViewWindow boxes on the host. Standard and
+ * Internal are a single box; Boundary is up to six disjoint boxes. The kernel maps its flat
+ * logical index onto those boxes, so no @ref DataView template parameter is instantiated.
  */
 
 #include <carbon/data_view.h>
+#include <carbon/detail/backend/sycl/block_atomic_reduce.h>
 #include <carbon/detail/dense_distributed/span.h>
 #include <carbon/integer3d.h>
 #include <carbon/logging.h>
@@ -53,20 +59,24 @@ concept dense_reduce_fn = std::is_invocable_r_v<T, F, Span, Idx>;
  */
 constexpr int kReduceBlockThreads = 256;
 
-template <::carbon::DataView View,
-          typename F,
+/**
+ * @brief One @c sycl::reduction over the concatenated logical cells of @p windows.
+ *
+ * Standard / Internal have one window, so the loop resolves on its first iteration.
+ * Boundary has up to six; the flat index is shifted by each preceding window volume.
+ */
+template <typename F,
           typename T,
           typename Op>
 inline auto
-launch_dense_reduce_view(sycl::queue& queue,
-                         Span span,
-                         F fn,
-                         Op op,
-                         T init,
-                         T* out,
-                         int64_t total_cells) -> void {
-  const ::carbon::int64_3d ext = span.iter_extent<View>();
-
+launch_dense_reduce_windows(sycl::queue& queue,
+                            Span span,
+                            ViewWindowSet windows,
+                            F fn,
+                            Op op,
+                            T init,
+                            T* out,
+                            int64_t total_cells) -> void {
   try {
     queue.submit([&](sycl::handler& cgh) {
       auto reducer =
@@ -74,20 +84,25 @@ launch_dense_reduce_view(sycl::queue& queue,
       cgh.parallel_for(sycl::range<1>(static_cast<size_t>(total_cells)), reducer,
                        [=](sycl::id<1> i, auto& red) {
                          const int64_t flat = static_cast<int64_t>(i[0]);
-                         // Row-major decoding (z slowest, x fastest), same as the CUDA
-                         // dense_grid_reduce_kernel — keeps the per-cell traversal order
-                         // identical so any non-associative-op corner case lands on the
-                         // same accumulation tree shape on both backends (modulo the
-                         // runtime's own internal reduction tree, which is associative
-                         // by contract).
-                         const int64_t ix = flat % ext.x;
-                         const int64_t rest = flat / ext.x;
-                         const int64_t iy = rest % ext.y;
-                         const int64_t iz = rest / ext.y;
-                         const ValidatedIdx vi = span.set_and_validate<View>(ix, iy, iz);
-                         if (vi.valid) {
-                           red.combine(fn(span, vi.idx));
+                         int window_index = 0;
+                         int64_t local = flat;
+                         for (; window_index < windows.count; ++window_index) {
+                           const int64_t volume = windows.windows[window_index].volume();
+                           if (local < volume) {
+                             break;
+                           }
+                           local -= volume;
                          }
+                         if (window_index >= windows.count) {
+                           return;
+                         }
+                         const ViewWindow w = windows.windows[window_index];
+                         const int64_t ix = local % w.extent.x;
+                         const int64_t rest = local / w.extent.x;
+                         const int64_t iy = rest % w.extent.y;
+                         const int64_t iz = rest / w.extent.y;
+                         red.combine(fn(span, Idx(w.origin.x + ix, w.origin.y + iy,
+                                                   w.origin.z + iz)));
                        });
     });
   } catch (const sycl::exception& ex) {
@@ -97,8 +112,8 @@ launch_dense_reduce_view(sycl::queue& queue,
 }
 
 /**
- * @brief Launch a fused map+reduce over @c span 's iteration extent for @p view and
- *        write the final scalar into @p out .
+ * @brief Launch a fused map+reduce over @c span 's window(s) for @p view and write the final
+ *        scalar into @p out .
  *
  * @tparam F   Per-cell device callable returning the per-cell @c T contribution.
  * @tparam T   Reduction value type.
@@ -107,9 +122,7 @@ launch_dense_reduce_view(sycl::queue& queue,
  *
  * @param queue        SYCL queue to enqueue on (already pinned to the right device).
  * @param span         Slab geometry.
- * @param view         Iteration view; @c iter_extent and @c set_and_validate are both
- *                     parameterised on this so Internal / Boundary launches index only
- *                     their owned z-band.
+ * @param view         Iteration view, translated on the host via @c span.view_windows(view).
  * @param fn           Per-cell device callable.
  * @param op           Reduction operator.
  * @param init         Identity element for @p op .
@@ -117,8 +130,7 @@ launch_dense_reduce_view(sycl::queue& queue,
  *                     value at @p out before the launch is ignored —
  *                     @c sycl::property::reduction::initialize_to_identity ensures the
  *                     reduction object writes @p init in-place before combining.
- * @param total_cells  Owned-cell count for @p view
- *                     (== @c span.iter_extent(view).volume() ).
+ * @param total_cells  Owned-cell count for @p view (sum of the window volumes).
  *
  * @throws std::runtime_error on any @c sycl::exception escaping the @c parallel_for
  *         submission (signature symmetric with @c launch_dense_grid).
@@ -135,6 +147,12 @@ launch_dense_reduce(sycl::queue& queue,
                     T init,
                     T* out,
                     int64_t total_cells) -> void {
+  const ViewWindowSet windows = span.view_windows(view);
+  if (windows.total_volume() != total_cells) {
+    ::carbon::log::throw_with_log<std::invalid_argument>(
+        "launch_dense_reduce: window plan covers {} cell(s), expected {}", windows.total_volume(),
+        total_cells);
+  }
   if (total_cells <= 0) {
     // Empty domain: write the identity directly to the output and return. Matches the
     // CUDA backend's "degenerate cub::DeviceReduce::Reduce with num_items=0" branch.
@@ -147,19 +165,71 @@ launch_dense_reduce(sycl::queue& queue,
     return;
   }
 
-  switch (view) {
-    case ::carbon::DataView::Standard:
-      launch_dense_reduce_view<::carbon::DataView::Standard>(
-          queue, span, fn, op, init, out, total_cells);
+  launch_dense_reduce_windows(queue, span, windows, fn, op, init, out, total_cells);
+}
+
+/**
+ * @brief Block-atomic Sum stage 1 over @p view 's window(s).
+ *
+ * The output is zeroed once; each work-group reduces its cells and adds one atomic. The flat
+ * index is mapped across the concatenated window volumes exactly as in @ref launch_dense_reduce.
+ */
+template <typename F,
+          typename T>
+inline auto
+launch_dense_reduce_block_atomic(sycl::queue& queue,
+                                 Span span,
+                                 ::carbon::DataView view,
+                                 F fn,
+                                 T* out,
+                                 int64_t total_cells) -> void {
+  ViewWindowSet windows = span.view_windows(view);
+  if (windows.total_volume() != total_cells) {
+    ::carbon::log::throw_with_log<std::invalid_argument>(
+        "launch_dense_reduce_block_atomic: window plan covers {} cell(s), expected {}",
+        windows.total_volume(), total_cells);
+  }
+  try {
+    queue.memset(out, 0, sizeof(T));
+    if (total_cells <= 0) {
       return;
-    case ::carbon::DataView::Internal:
-      launch_dense_reduce_view<::carbon::DataView::Internal>(
-          queue, span, fn, op, init, out, total_cells);
-      return;
-    case ::carbon::DataView::Boundary:
-      launch_dense_reduce_view<::carbon::DataView::Boundary>(
-          queue, span, fn, op, init, out, total_cells);
-      return;
+    }
+    const size_t total = static_cast<size_t>(total_cells);
+    constexpr size_t group_size = ::carbon::detail::sycl_reduce::kBlockAtomicGroupSize;
+    const size_t global = (total + group_size - 1U) / group_size * group_size;
+    queue.parallel_for(sycl::nd_range<1>(global, group_size), [=](sycl::nd_item<1> it) {
+      const size_t flat_u = it.get_global_id(0);
+      T value{};
+      if (flat_u < total) {
+        int window_index = 0;
+        int64_t local = static_cast<int64_t>(flat_u);
+        for (; window_index < windows.count; ++window_index) {
+          const int64_t volume = windows.windows[window_index].volume();
+          if (local < volume) {
+            break;
+          }
+          local -= volume;
+        }
+        if (window_index < windows.count) {
+          const ViewWindow w = windows.windows[window_index];
+          const int64_t ix = local % w.extent.x;
+          const int64_t rest = local / w.extent.x;
+          const int64_t iy = rest % w.extent.y;
+          const int64_t iz = rest / w.extent.y;
+          value = fn(span, Idx(w.origin.x + ix, w.origin.y + iy, w.origin.z + iz));
+        }
+      }
+      const T group_sum = sycl::reduce_over_group(it.get_group(), value, sycl::plus<T>());
+      if (it.get_local_id(0) == 0U) {
+        sycl::atomic_ref<T, sycl::memory_order::relaxed, sycl::memory_scope::device,
+                         sycl::access::address_space::global_space>
+            acc(*out);
+        acc.fetch_add(group_sum);
+      }
+    });
+  } catch (const sycl::exception& ex) {
+    ::carbon::log::throw_with_log<std::runtime_error>(
+        "launch_dense_reduce_block_atomic: SYCL submission failed: {}", ex.what());
   }
 }
 

@@ -22,6 +22,7 @@
 #include <carbon/data_view.h>
 #include <carbon/dense_distributed.h>
 #include <carbon/detail/dense_distributed/kernel.h>
+#include <carbon/detail/dense_distributed/window_launch.h>
 #include <carbon/detail/gpu.h>
 #include <carbon/launch_shape.h>
 #include <carbon/logging.h>
@@ -29,6 +30,7 @@
 #include <carbon/detail/backend/cuda_like.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <stdexcept>
 
 namespace carbon {
@@ -66,24 +68,30 @@ inline constexpr bool dense_launch_requires_cudacc_ = false;
  * @return @c gpu_error_t result of @c gpu_runtime_launch_kernel — non-success values are surfaced
  *         to the user through @c DeviceKernelImpl's error path.
  */
-template <::carbon::DataView View, typename F>
+/**
+ * @brief Launch @c dense_grid_kernel once, over the window already stamped into @p span.
+ *
+ * The only per-launch dispatch left is the storage kind (Slab / Pencil / Brick); the
+ * @ref DataView is gone from the kernel's template signature.
+ */
+template <typename F>
 requires dense_distributed_kernel_fn<F> [[nodiscard]] inline auto
-launch_dense_grid_view(const ::carbon::detail::Gpu& gpu,
-                       const Span& span,
-                       dim3 grid_shape,
-                       dim3 block_shape,
-                       size_t shared_mem,
-                       gpu_stream_t stream,
-                       F fn) -> gpu_error_t {
+launch_dense_grid_window(const ::carbon::detail::Gpu& gpu,
+                         const Span& span,
+                         dim3 grid_shape,
+                         dim3 block_shape,
+                         size_t shared_mem,
+                         gpu_stream_t stream,
+                         F fn) -> gpu_error_t {
   switch (span.storage_kind()) {
     case StorageKind::Slab:
-      return gpu.template typed_launch<&dense_grid_kernel<View, StorageKind::Slab, F>>(
+      return gpu.template typed_launch<&dense_grid_kernel<StorageKind::Slab, F>>(
           grid_shape, block_shape, shared_mem, stream, TypedSpan<StorageKind::Slab>{span}, fn);
     case StorageKind::Pencil:
-      return gpu.template typed_launch<&dense_grid_kernel<View, StorageKind::Pencil, F>>(
+      return gpu.template typed_launch<&dense_grid_kernel<StorageKind::Pencil, F>>(
           grid_shape, block_shape, shared_mem, stream, TypedSpan<StorageKind::Pencil>{span}, fn);
     case StorageKind::Brick:
-      return gpu.template typed_launch<&dense_grid_kernel<View, StorageKind::Brick, F>>(
+      return gpu.template typed_launch<&dense_grid_kernel<StorageKind::Brick, F>>(
           grid_shape, block_shape, shared_mem, stream, TypedSpan<StorageKind::Brick>{span}, fn);
   }
   return gpu_error_not_supported;
@@ -114,20 +122,22 @@ launch_dense_grid(const ::carbon::DenseDistributed& grid,
   }
   const ::carbon::detail::Gpu& gpu = grid.system().gpu_group().devices()[relative_gpu_id];
   const Span span = grid.spans()[relative_gpu_id];
-  const dim3 dim_grid = to_dim3(grid_shape);
   const dim3 dim_block = to_dim3(block_shape);
-  switch (view) {
-    case ::carbon::DataView::Standard:
-      return launch_dense_grid_view<::carbon::DataView::Standard>(
-          gpu, span, dim_grid, dim_block, shared_mem, stream, fn);
-    case ::carbon::DataView::Internal:
-      return launch_dense_grid_view<::carbon::DataView::Internal>(
-          gpu, span, dim_grid, dim_block, shared_mem, stream, fn);
-    case ::carbon::DataView::Boundary:
-      return launch_dense_grid_view<::carbon::DataView::Boundary>(
-          gpu, span, dim_grid, dim_block, shared_mem, stream, fn);
+
+  // One launch per non-empty window: Standard and Internal are a single box (same launch shape as
+  // the precomputed @p grid_shape); Boundary is up to six boxes (two for a slab). The per-window
+  // shape is derived from the box itself, so @p grid_shape is only used for the early-out above.
+  const ViewWindowSet windows = span.view_windows(view);
+  for (int i = 0; i < windows.count; ++i) {
+    const ViewWindow& w = windows.windows[i];
+    const dim3 dim_grid = to_dim3(window_grid_shape(w.extent, block_shape));
+    const gpu_error_t err = launch_dense_grid_window<F>(gpu, span.with_window(w), dim_grid,
+                                                        dim_block, shared_mem, stream, fn);
+    if (err != gpu_success) {
+      return err;
+    }
   }
-  return gpu_error_not_supported;
+  return gpu_success;
 }
 
 #else

@@ -35,6 +35,7 @@
 #include <carbon/data_view.h>
 #include <carbon/dense_distributed.h>
 #include <carbon/detail/dense_distributed/kernel.h>
+#include <carbon/detail/dense_distributed/window_launch.h>
 #include <carbon/detail/gpu.h>
 #include <carbon/launch_shape.h>
 #include <carbon/logging.h>
@@ -50,7 +51,7 @@ namespace carbon::detail::dense_distributed {
 namespace detail {
 
 /** Submit one typed launch so @c Partition::neighbour can specialise on the storage kind. */
-template <::carbon::DataView View, StorageKind Kind, typename F>
+template <StorageKind Kind, typename F>
 requires dense_distributed_kernel_fn<F> inline void
 launch_dense_grid_typed(sycl::queue& queue,
                         const TypedSpan<Kind>& span,
@@ -61,32 +62,43 @@ launch_dense_grid_typed(sycl::queue& queue,
     const int64_t ix = static_cast<int64_t>(it.get_global_id(2));
     const int64_t iy = static_cast<int64_t>(it.get_global_id(1));
     const int64_t iz = static_cast<int64_t>(it.get_global_id(0));
-    const ValidatedIdx r = span.template set_and_validate<View>(ix, iy, iz);
-    if (!r.valid) {
+    const int64_3d ext = span.window_extent();
+    const int64_3d org = span.window_origin();
+    if (ix >= ext.x || iy >= ext.y || iz >= ext.z) {
       return;
     }
-    fn(span, r.idx);
+    fn(span, Idx(org.x + ix, org.y + iy, org.z + iz));
   });
 }
 
-template <::carbon::DataView View, typename F>
+template <typename F>
 requires dense_distributed_kernel_fn<F> inline void
-launch_dense_grid_view(sycl::queue& queue,
-                       const Span& span,
-                       const sycl::range<3>& global,
-                       const sycl::range<3>& local,
-                       F fn) {
+launch_dense_grid_window(sycl::queue& queue,
+                         const Span& span,
+                         LaunchShape block_shape,
+                         F fn) {
+  const LaunchShape grid_shape = window_grid_shape(span.window_extent(), block_shape);
+  if (!grid_shape.is_nonzero()) {
+    return;
+  }
+  const sycl::range<3> local{static_cast<size_t>(block_shape.z),
+                             static_cast<size_t>(block_shape.y),
+                             static_cast<size_t>(block_shape.x)};
+  const sycl::range<3> global{
+      static_cast<size_t>(grid_shape.z) * static_cast<size_t>(block_shape.z),
+      static_cast<size_t>(grid_shape.y) * static_cast<size_t>(block_shape.y),
+      static_cast<size_t>(grid_shape.x) * static_cast<size_t>(block_shape.x)};
   switch (span.storage_kind()) {
     case StorageKind::Slab:
-      launch_dense_grid_typed<View, StorageKind::Slab>(
+      launch_dense_grid_typed<StorageKind::Slab>(
           queue, TypedSpan<StorageKind::Slab>{span}, global, local, fn);
       return;
     case StorageKind::Pencil:
-      launch_dense_grid_typed<View, StorageKind::Pencil>(
+      launch_dense_grid_typed<StorageKind::Pencil>(
           queue, TypedSpan<StorageKind::Pencil>{span}, global, local, fn);
       return;
     case StorageKind::Brick:
-      launch_dense_grid_typed<View, StorageKind::Brick>(
+      launch_dense_grid_typed<StorageKind::Brick>(
           queue, TypedSpan<StorageKind::Brick>{span}, global, local, fn);
       return;
   }
@@ -124,31 +136,12 @@ launch_dense_grid(const ::carbon::DenseDistributed& grid,
   }
 
   const Span span = grid.spans()[relative_gpu_id];
-
-  // SYCL nd_range orders dimensions slowest..fastest; carbon's LaunchShape is (x, y, z) in
-  // the CUDA convention (x fastest). Swap when constructing the range so dim 2 maps to x,
-  // dim 1 to y, dim 0 to z.
-  const sycl::range<3> local{static_cast<size_t>(block_shape.z), static_cast<size_t>(block_shape.y),
-                             static_cast<size_t>(block_shape.x)};
-  const sycl::range<3> global{
-      static_cast<size_t>(grid_shape.z) * static_cast<size_t>(block_shape.z),
-      static_cast<size_t>(grid_shape.y) * static_cast<size_t>(block_shape.y),
-      static_cast<size_t>(grid_shape.x) * static_cast<size_t>(block_shape.x)};
+  const ViewWindowSet windows = span.view_windows(view);
 
   try {
-    switch (view) {
-      case ::carbon::DataView::Standard:
-        detail::launch_dense_grid_view<::carbon::DataView::Standard>(
-            queue, span, global, local, fn);
-        return;
-      case ::carbon::DataView::Internal:
-        detail::launch_dense_grid_view<::carbon::DataView::Internal>(
-            queue, span, global, local, fn);
-        return;
-      case ::carbon::DataView::Boundary:
-        detail::launch_dense_grid_view<::carbon::DataView::Boundary>(
-            queue, span, global, local, fn);
-        return;
+    for (int i = 0; i < windows.count; ++i) {
+      detail::launch_dense_grid_window(queue, span.with_window(windows.windows[i]), block_shape,
+                                       fn);
     }
   } catch (const sycl::exception& ex) {
     ::carbon::log::throw_with_log<std::runtime_error>(

@@ -32,6 +32,52 @@ using ValidatedIdx = ::carbon::detail::Validated<Idx>;
 enum class StorageKind : uint8_t { Slab = 0, Pencil = 1, Brick = 2 };
 
 /**
+ * Box of owned cells, in @b buffer-relative coordinates, that one kernel launch iterates over.
+ *
+ * A @ref DataView is realised on the host as one (Standard, Internal) or several (Boundary)
+ * windows; the kernel itself never sees the view. @c origin is the buffer coordinate of the
+ * box's first cell and @c extent its size; an axis with a non-positive extent makes the box empty.
+ */
+struct ViewWindow {
+  int64_3d origin{};
+  int64_3d extent{};
+
+  [[nodiscard]] CARBON_HD constexpr auto
+  empty() const noexcept -> bool {
+    return extent.x <= 0 || extent.y <= 0 || extent.z <= 0;
+  }
+
+  [[nodiscard]] CARBON_HD constexpr auto
+  volume() const noexcept -> int64_t {
+    return empty() ? 0 : extent.x * extent.y * extent.z;
+  }
+};
+
+/** Up to six non-empty, pairwise-disjoint @ref ViewWindow boxes (the Boundary shell needs six). */
+struct ViewWindowSet {
+  static constexpr int kMaxWindows = 6;
+  ViewWindow windows[kMaxWindows]{};
+  int count{0};
+
+  /** Append @p w unless it is empty. */
+  CARBON_HD constexpr void
+  push(const ViewWindow& w) noexcept {
+    if (!w.empty() && count < kMaxWindows) {
+      windows[count++] = w;
+    }
+  }
+
+  [[nodiscard]] CARBON_HD constexpr auto
+  total_volume() const noexcept -> int64_t {
+    int64_t v = 0;
+    for (int i = 0; i < count; ++i) {
+      v += windows[i].volume();
+    }
+    return v;
+  }
+};
+
+/**
  * The Boundary shell as six disjoint boxes over the owned extent. Per axis the low / high band
  * thickness is clamped so the two never overlap (a chunk thinner than @c 2 * halo is shell
  * entirely and @c Internal is empty). Box order: Z-low, Z-high (full XY); Y-low, Y-high
@@ -82,6 +128,12 @@ class Span {
   float32_3d origin_{};
   float spacing_{1.0F};
   StorageKind kind_{StorageKind::Brick};   
+  // Box this span instance iterates over. Defaults to the Standard window (all owned cells); the
+  // launcher swaps it per launch via with_window(). Carried *in the span* (not as a separate kernel
+  // argument) because that is the encoding ptxas turns into the leanest address math -- see
+  // dense_grid_kernel.
+  int64_3d window_origin_{};
+  int64_3d window_extent_{};
 
 public:
   CARBON_HD constexpr Span() noexcept = default;
@@ -112,7 +164,10 @@ public:
         legacy_slab_(legacy_slab),
         origin_(origin),
         spacing_(spacing),
-        kind_(compute_kind_(haloed_extent, global_extent, offset, halo))
+        kind_(compute_kind_(haloed_extent, global_extent, offset, halo)),
+        window_origin_(halo),
+        window_extent_(int64_3d{haloed_extent.x - 2 * halo.x, haloed_extent.y - 2 * halo.y,
+                                haloed_extent.z - 2 * halo.z})
         {}
 
   /**
@@ -323,6 +378,87 @@ public:
   [[nodiscard]] CARBON_HD constexpr auto
   halo_z() const noexcept -> int64_t {
     return halo_.z;
+  }
+
+  /** Buffer-relative first cell of the box this span iterates over (see @ref with_window). */
+  [[nodiscard]] CARBON_HD constexpr auto
+  window_origin() const noexcept -> int64_3d {
+    return window_origin_;
+  }
+
+  /** Per-axis size of the box this span iterates over (see @ref with_window). */
+  [[nodiscard]] CARBON_HD constexpr auto
+  window_extent() const noexcept -> int64_3d {
+    return window_extent_;
+  }
+
+  /** Copy of this span that iterates over @p w instead. Everything else is unchanged. */
+  [[nodiscard]] CARBON_HD constexpr auto
+  with_window(const ViewWindow& w) const noexcept -> Span {
+    Span s{*this};
+    s.window_origin_ = w.origin;
+    s.window_extent_ = w.extent;
+    return s;
+  }
+
+  /** All owned cells: origin @c halo(), extent @c logic_extent(). */
+  [[nodiscard]] CARBON_HD constexpr auto
+  standard_window() const noexcept -> ViewWindow {
+    return ViewWindow{halo_, logic_extent()};
+  }
+
+  /** Owned cells at least @c halo() away from every owned face (empty if the chunk is too thin). */
+  [[nodiscard]] CARBON_HD constexpr auto
+  internal_window() const noexcept -> ViewWindow {
+    const int64_3d n = logic_extent();
+    const int64_t ex = n.x - 2 * halo_.x;
+    const int64_t ey = n.y - 2 * halo_.y;
+    const int64_t ez = n.z - 2 * halo_.z;
+    return ViewWindow{int64_3d{2 * halo_.x, 2 * halo_.y, 2 * halo_.z},
+                      int64_3d{ex > 0 ? ex : 0, ey > 0 ? ey : 0, ez > 0 ? ez : 0}};
+  }
+
+  /**
+   * Owned cells within @c halo() of an owned face, as up to six disjoint boxes (empty ones
+   * omitted). Same partition as the compact shell decoded by @ref set_and_validate: Z-low, Z-high
+   * (full XY); Y-low, Y-high (full X, middle Z); X-low, X-high (middle Y, middle Z). A slab
+   * (halo.x == halo.y == 0) yields just the two Z boxes.
+   */
+  [[nodiscard]] CARBON_HD constexpr auto
+  boundary_windows() const noexcept -> ViewWindowSet {
+    const int64_3d n = logic_extent();
+    const ShellBands b = make_shell_bands_(haloed_extent_, halo_);
+    const int64_t mz = n.z - b.lo.z - b.hi.z;
+    const int64_t my = n.y - b.lo.y - b.hi.y;
+    ViewWindowSet set;
+    set.push(ViewWindow{int64_3d{halo_.x, halo_.y, halo_.z}, int64_3d{n.x, n.y, b.lo.z}});
+    set.push(ViewWindow{int64_3d{halo_.x, halo_.y, halo_.z + n.z - b.hi.z},
+                        int64_3d{n.x, n.y, b.hi.z}});
+    set.push(ViewWindow{int64_3d{halo_.x, halo_.y, halo_.z + b.lo.z}, int64_3d{n.x, b.lo.y, mz}});
+    set.push(ViewWindow{int64_3d{halo_.x, halo_.y + n.y - b.hi.y, halo_.z + b.lo.z},
+                        int64_3d{n.x, b.hi.y, mz}});
+    set.push(ViewWindow{int64_3d{halo_.x, halo_.y + b.lo.y, halo_.z + b.lo.z},
+                        int64_3d{b.lo.x, my, mz}});
+    set.push(ViewWindow{int64_3d{halo_.x + n.x - b.hi.x, halo_.y + b.lo.y, halo_.z + b.lo.z},
+                        int64_3d{b.hi.x, my, mz}});
+    return set;
+  }
+
+  /** The window(s) that realise @p view on this span. */
+  [[nodiscard]] CARBON_HD constexpr auto
+  view_windows(::carbon::DataView view) const noexcept -> ViewWindowSet {
+    ViewWindowSet set;
+    switch (view) {
+      case ::carbon::DataView::Standard:
+        set.push(standard_window());
+        return set;
+      case ::carbon::DataView::Internal:
+        set.push(internal_window());
+        return set;
+      case ::carbon::DataView::Boundary:
+        return boundary_windows();
+    }
+    return set;
   }
 
   /** Boundary semantics this span was built with (propagated from the owning @c DenseDistributed). */

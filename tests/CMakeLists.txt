@@ -144,6 +144,7 @@ carbon_add_unit_test(halo_coalesce)
 # Span views and neighbour resolution (open + periodic), and the packed X->Y->Z halo exchange on an
 # emulated multi-rank world. No GPU and no MPI, so it stays on the cpu lane.
 carbon_add_unit_test(dense_distributed_host)
+carbon_add_unit_test(dense_distributed_windows)
 # DenseDisgDistributed (Phase 1, slab only): layout helpers and Span parity with DenseDisg run on
 # the CPU; the grid-level DenseDisg parity (spans + bit-identical fill_owned_host) runs when a
 # device is visible, so it shares the GPU lock.
